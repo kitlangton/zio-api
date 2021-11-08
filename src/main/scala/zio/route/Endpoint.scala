@@ -1,6 +1,6 @@
 package zio.route
 
-import zio.{UIO, Zippable, route}
+import zio.{UIO, ZIO, Zippable, route}
 import zio.schema.Schema
 
 sealed trait HttpMethod extends Product with Serializable
@@ -35,13 +35,14 @@ object EndpointParser {
     def unapply(request: Request): Option[A] = f(request)
   }
 
-  def interpret[Params](endpoint: Endpoint[Params, Unit, Unit]) = {
+  def interpret[R, E, Params, Output](handler: Handler[R, E, Params, Unit, Output]): HttpApp[R, E] = {
+    val parser = UnapplyParser(parseRequest(handler.endpoint.requestInfo)(_))
 
-    val parser = UnapplyParser(parseRequest(endpoint.requestInfo)(_))
-
-    HttpApp.collect { case parser(result) =>
-      println(s"RECEIVED: $result")
-      Response.text(result.toString)
+    HttpApp.collectM { case parser(result) =>
+      ZIO.debug(s"RECEIVED: $result") *>
+        handler
+          .handler((result, ()))
+          .map(a => Response.text(a.toString))
     }
   }
 }
@@ -60,7 +61,7 @@ final case class Endpoint[Params, Input, Output](
     doc: Doc,
     request: Schema[Input],
     response: Schema[Output]
-) {
+) { self =>
   type Id
 
   def query[A](queryParams: QueryParams[A])(implicit
@@ -78,11 +79,12 @@ final case class Endpoint[Params, Input, Output](
     ???
 
   def withResponse[Output2]: Endpoint[Params, Input, Output2] =
-    ???
+    self.asInstanceOf[Endpoint[Params, Input, Output2]]
 
   //  def ??(doc: Doc): Endpoint[P, I, O] = ???
 
-  //  def ++[](that: Endpoint[])
+  def ++(that: Endpoint[_, _, _]): Endpoints[Id with that.Id] =
+    Endpoints(self) ++ that
 }
 
 object Endpoint {

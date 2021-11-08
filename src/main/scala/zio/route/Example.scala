@@ -2,8 +2,7 @@ package zio.route
 
 import zhttp.service.Server
 import zio._
-
-import scala.language.implicitConversions
+import zio.duration.durationInt
 
 final case class Box[+A](name: String)
 
@@ -12,14 +11,25 @@ object RouteExample extends App {
 
   final case class Person(name: String, age: Int)
 
-  val myEndpoint: Endpoint[(Person, (String, String), (Option[String], Option[Int])), Unit, Unit] =
+  val myEndpoint =
     Endpoint
       .get(("dogs" / string / "cool" / int).map(Person.tupled))
       .header(Headers.UserAgent ++ Headers.AcceptEncoding)
       .query(QueryParams.string("name").? ++ QueryParams.int("age").?)
+      .withResponse[Person]
+
+  val myEndpointHandler =
+    Handler.make(myEndpoint) { case ((person, (agent, accept), (name, age)), _) =>
+      ZIO.debug("RECEIVED") *> ZIO.sleep(300.millis) *>
+        console.putStrLn(s"Person: $person, Agent: $agent, Accept: $accept, Name: $name, Age: $age") *>
+        UIO(person)
+    }
+
+  val endpoints =
+    myEndpoint
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8888, EndpointParser.interpret(myEndpoint)).exitCode
+    Server.start(8888, EndpointParser.interpret(myEndpointHandler)).exitCode
 }
 
 sealed trait MimeType
@@ -35,8 +45,6 @@ object Doc {
 
   case object Empty extends Doc
 }
-
-trait Endpoints {}
 
 // (getPosts ++ createPost).routed("/api")
 // val userApi = EndpointAspect.at("/api/users")
