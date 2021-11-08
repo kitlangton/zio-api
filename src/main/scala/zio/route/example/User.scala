@@ -1,0 +1,11 @@
+package zio.route.example
+
+import zio.json.{DeriveJsonCodec, JsonCodec}
+
+import java.util.UUID
+
+object User {
+  implicit val codec: JsonCodec[User] = DeriveJsonCodec.gen[User]
+}
+
+final case class User(id: UUID, name: String, email: String)

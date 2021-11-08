@@ -17,8 +17,7 @@ object RequestParser {
   final case class Map[A, B](info: RequestParser[A], f: A => B) extends RequestParser[B]
 }
 
-/** HEADERS
-  * =======
+/** =HEADERS=
   */
 sealed trait Headers[+A] extends RequestParser[A] {
   self =>
@@ -46,7 +45,7 @@ sealed trait Headers[+A] extends RequestParser[A] {
         } yield (l, r).asInstanceOf[A]
 
       case optional: Headers.Optional[_] =>
-        Some(optional.params.parse(request)).asInstanceOf[Option[A]]
+        Some(optional.headers.parse(request).asInstanceOf[A])
 
       case Headers.Map(headers, f) =>
         headers.parse(request).map(f.asInstanceOf[Any => A])
@@ -67,9 +66,9 @@ object Headers {
 
   final case class Zip[A, B](left: Headers[A], right: Headers[B]) extends Headers[(A, B)]
 
-  final case class Map[A, B](params: Headers[A], f: A => B) extends Headers[B]
+  final case class Map[A, B](headers: Headers[A], f: A => B) extends Headers[B]
 
-  case class Optional[A](params: Headers[A]) extends Headers[Option[A]]
+  case class Optional[A](headers: Headers[A]) extends Headers[Option[A]]
 }
 
 /** QUERY PARAMS
@@ -118,16 +117,47 @@ object QueryParams {
   case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
 }
 
-object Route {
-  final case class MatchLiteral(string: String)               extends Route[Unit]
-  final case class MatchParser[A](parser: Parser[A])          extends Route[A]
-  final case class Zip[A, B](left: Route[A], right: Route[B]) extends Route[(A, B)]
-  final case class Map[A, B](route: Route[A], f: A => B)      extends Route[B]
+/** A DSL that allows us to describe Routes
+  *   - ex: /users
+  *   - ex: /users/:id/friends
+  *   - ex: /users/:id/friends/:friendId
+  *   - ex: /posts/:id/comments/:commentId
+  */
+sealed trait Route[+A] extends RequestParser[A] { self =>
+  def ??(doc: Doc): Route[A] = ???
 
-  def parseInterpret[A](route: Route[A]): HttpApp[Any, Nothing] =
-    HttpApp.collectM { case route(result) =>
-      ZIO.debug(s"RECEIEVD: " + result).as(Response.text(result.toString))
-    }
+  override def map[B](f: A => B): Route[B] =
+    Route.MapRoute(self, f)
+
+  def /[B](that: Route[B])(implicit zippable: Zippable[A, B]): Route[zippable.Out] =
+    Route.Zip(this, that).map { case (a, b) => zippable.zip(a, b) }
+
+  def /(string: String): Route[A] =
+    Route.Zip(this, Route.path(string)).map(_._1)
+}
+
+object Route {
+  // ex: "/users"
+  // "users"
+  // MatchLiteral("users")
+  final case class MatchLiteral(string: String) extends Route[Unit]
+
+  // ex: "/:id" (which must be an int)
+  // int
+  // MatchParser(Parser.intParser)
+  final case class MatchParser[A](parser: Parser[A]) extends Route[A]
+
+  // ex: "/users/:id"
+  // "users" / int
+  // Zip(MatchLiteral("users"), MatchParser(Parser.intParser))
+  final case class Zip[A, B](left: Route[A], right: Route[B]) extends Route[(A, B)]
+
+  // case class Person(name: String, age: Int)
+  // ("name" / string / "age" / int).map { case (name, age) => Person(name, age) }
+  // run(route)(input) : Option[A]
+  // "name/kit/age/23" -> Some(Person("kit", 23))
+  // "name/kit/age/oops" -> None
+  final case class MapRoute[A, B](route: Route[A], f: A => B) extends Route[B]
 
   def parse[A](input: String, route: Route[A]): Option[A] =
     parseImpl(input.split("/").toList, route).map(_._2)
@@ -136,25 +166,27 @@ object Route {
     route match {
       case MatchLiteral(string) =>
         if (input.headOption.contains(string))
-          Some(input.tail -> ().asInstanceOf[A])
+          Some(input.tail -> ())
         else
           None
 
       case MatchParser(parser) =>
-        parser
-          .parse(input.headOption.getOrElse(""))
-          .map(input.tail -> _)
+        input.headOption.flatMap { head =>
+          parser
+            .parse(head)
+            .map(input.tail -> _)
+        }
 
-      case zip: Zip[_, _] =>
+      case Zip(left, right) =>
         for {
-          (input0, a) <- parseImpl(input, zip.left)
-          (input1, b) <- parseImpl(input0, zip.right)
-        } yield (input1, (a, b).asInstanceOf[A])
+          (input0, a) <- parseImpl(input, left)
+          (input1, b) <- parseImpl(input0, right)
+        } yield (input1, (a, b))
 
-      case Map(route, f) =>
+      case MapRoute(route, f) =>
         parseImpl(input, route)
           .map { case (input, output) =>
-            (input, f.asInstanceOf[Any => A](output))
+            (input, f(output))
           }
     }
 
@@ -164,32 +196,8 @@ object Route {
   val boolean: Route[Boolean]         = MatchParser(Parser.booleanParser)
 
   // Only defined as RouteAspect
-  lazy val contentType: Route[MimeType] = ??? // header()
-
   // val jsonAspect: RouteAspect[(MimeType, String)] = contentType + authHeader
-
-  def header[A](headerType: HeaderType[A]): Route[A] = ???
 
   implicit def string2Route(string: String): Route[Unit] = path(string)
 
-}
-
-sealed trait Route[+A] extends RequestParser[A] { self =>
-
-  def ??(doc: Doc): Route[A] = ???
-
-  override def map[B](f: A => B): Route[B] =
-    Route.Map(self, f)
-
-  def /[B](that: Route[B])(implicit zippable: Zippable[A, B]): Route[zippable.Out] =
-    Route.Zip(this, that).map { case (a, b) => zippable.zip(a, b) }
-
-  def /(string: String): Route[A] =
-    Route.Zip(this, string).map(_._1)
-
-  def unapply(string: String): Option[A] =
-    Route.parse(string, self)
-
-  def unapply(request: Request): Option[A] =
-    Route.parseImpl(request.url.path.toList, self).map(_._2)
 }

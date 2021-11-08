@@ -1,33 +1,37 @@
 package zio.route
 
+import zio.json.internal.{RetractReader, Write}
+import zio.json.{EncoderOps, JsonCodec, JsonDecoder, JsonEncoder}
 import zio.{UIO, ZIO, Zippable, route}
 import zio.schema.Schema
-
-sealed trait HttpMethod extends Product with Serializable
 
 object EndpointParser {
   import zhttp.http.{Endpoint => _, _}
 
   import RequestParser._
+  // Route[A] => List[String] => Option[A]
+  // Headers[A] => Map[String, String] => Option[A]
+  // QueryParams[A] => Map[String, List[String]] => Option[A]
+  // RequestParser[A] => (Request => Option[A])
   def parseRequest[A](requestInfo: RequestParser[A])(request: Request): Option[A] =
     requestInfo match {
-      case zip: Zip[_, _] =>
+      case Zip(left, right) =>
         for {
-          a <- parseRequest(zip.left)(request)
-          b <- parseRequest(zip.right)(request)
-        } yield (a, b).asInstanceOf[A]
+          a <- parseRequest(left)(request)
+          b <- parseRequest(right)(request)
+        } yield (a, b)
 
       case Map(info, f) =>
-        parseRequest(info)(request).map(a => f.asInstanceOf[Any => A](a))
+        parseRequest(info)(request).map(a => f(a))
 
       case queryParams: QueryParams[_] =>
-        queryParams.parse(request).asInstanceOf[Option[A]]
+        queryParams.parse(request)
 
       case headers: Headers[_] =>
-        headers.parse(request).asInstanceOf[Option[A]]
+        headers.parse(request)
 
       case route: route.Route[_] =>
-        Route.parseImpl(request.url.path.toList, route).map(_._2).asInstanceOf[Option[A]]
+        Route.parseImpl(request.url.path.toList, route).map(_._2)
 
     }
 
@@ -36,41 +40,35 @@ object EndpointParser {
   }
 
   def interpret[R, E, Params, Output](handler: Handler[R, E, Params, Unit, Output]): HttpApp[R, E] = {
-    val parser = UnapplyParser(parseRequest(handler.endpoint.requestInfo)(_))
+    val parser                                      = UnapplyParser(parseRequest(handler.endpoint.requestParser)(_))
+    implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.response
 
-    HttpApp.collectM { case parser(result) =>
-      ZIO.debug(s"RECEIVED: $result") *>
-        handler
-          .handler((result, ()))
-          .map(a => Response.text(a.toString))
+    HttpApp.collectM { //
+      case parser(result) =>
+        ZIO.debug(s"RECEIVED: $result") *>
+          handler
+            .handle((result, ()))
+            .map(a => Response.jsonString(a.toJson))
     }
   }
 }
 
-object HttpMethod {
-  case object GET    extends HttpMethod
-  case object POST   extends HttpMethod
-  case object PATCH  extends HttpMethod
-  case object PUT    extends HttpMethod
-  case object DELETE extends HttpMethod
-}
-
 final case class Endpoint[Params, Input, Output](
     method: HttpMethod,
-    requestInfo: RequestParser[Params],
+    requestParser: RequestParser[Params], // Route / Params / Headers
     doc: Doc,
-    request: Schema[Input],
-    response: Schema[Output]
+    request: JsonCodec[Input],
+    response: JsonCodec[Output]
 ) { self =>
   type Id
 
   def query[A](queryParams: QueryParams[A])(implicit
       zippable: Zippable[Params, A]
   ): Endpoint[zippable.Out, Input, Output] =
-    copy(requestInfo = requestInfo ++ queryParams)
+    copy(requestParser = requestParser ++ queryParams)
 
   def header[A](headers: Headers[A])(implicit zippable: Zippable[Params, A]): Endpoint[zippable.Out, Input, Output] =
-    copy(requestInfo = requestInfo ++ headers)
+    copy(requestParser = requestParser ++ headers)
 
   def streamingInput: Endpoint[Params, Input, Output] =
     ???
@@ -78,8 +76,8 @@ final case class Endpoint[Params, Input, Output](
   def withRequest[Input2]: Endpoint[Params, Input2, Output] =
     ???
 
-  def withResponse[Output2]: Endpoint[Params, Input, Output2] =
-    self.asInstanceOf[Endpoint[Params, Input, Output2]]
+  def withResponse[Output2](implicit codec: JsonCodec[Output2]): Endpoint[Params, Input, Output2] =
+    copy(response = codec)
 
   //  def ??(doc: Doc): Endpoint[P, I, O] = ???
 
@@ -102,5 +100,10 @@ object Endpoint {
   /** Creates an endpoint with the given method and route.
     */
   private def method[Params](method: HttpMethod, route: Route[Params]): Endpoint[Params, Unit, Unit] =
-    Endpoint(method, route, Doc.empty, Schema[Unit], Schema[Unit])
+    Endpoint(method, route, Doc.empty, unitCodec, unitCodec)
+
+  lazy val unitCodec: JsonCodec[Unit] = JsonCodec(
+    (a: Unit, indent: Option[Int], out: Write) => (),
+    (trace: List[JsonDecoder.JsonError], in: RetractReader) => ()
+  )
 }

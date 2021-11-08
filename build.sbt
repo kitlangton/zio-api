@@ -16,10 +16,12 @@ lazy val root = (project in file("."))
   .settings(
     name := "zio-routes",
     libraryDependencies ++= Seq(
-      "io.d11"  %% "zhttp"      % zioHttpVersion,
-      "dev.zio" %% "zio"        % zioVersion,
-      "dev.zio" %% "zio-schema" % zioSchemaVersion,
-      "dev.zio" %% "zio-test"   % zioVersion % Test
+      "io.github.kitlangton" %% "zio-magic"  % "0.3.9",
+      "dev.zio"              %% "zio-json"   % zioJsonVersion,
+      "io.d11"               %% "zhttp"      % zioHttpVersion,
+      "dev.zio"              %% "zio"        % zioVersion,
+      "dev.zio"              %% "zio-schema" % zioSchemaVersion,
+      "dev.zio"              %% "zio-test"   % zioVersion % Test
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
