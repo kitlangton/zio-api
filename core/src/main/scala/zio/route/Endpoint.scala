@@ -87,6 +87,11 @@ final case class Endpoint[Params, Input, Output](
 
 object Endpoint {
 
+  /** Creates an endpoint for DELETE request at the given route.
+    */
+  def delete[A](route: Route[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.DELETE, route)
+
   /** Creates an endpoint for a GET request at the given route.
     */
   def get[A](route: Route[A]): Endpoint[A, Unit, Unit] =
@@ -96,6 +101,11 @@ object Endpoint {
     */
   def post[A](route: Route[A]): Endpoint[A, Unit, Unit] =
     method(HttpMethod.POST, route)
+
+  /** Creates an endpoint for a PUT request at the given route.
+    */
+  def put[A](route: Route[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.PUT, route)
 
   /** Creates an endpoint with the given method and route.
     */

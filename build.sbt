@@ -12,9 +12,57 @@ val zioProcessVersion = "0.5.0"
 val zioVersion        = "1.0.12"
 val zioSchemaVersion  = "0.1.1"
 
+Global / onChangedBuildSource := IgnoreSourceChanges
+
+val sharedSettings = Seq(
+  addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.0" cross CrossVersion.full),
+  addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
+//  scalacOptions ++= Seq("-Xfatal-warnings"),
+  resolvers ++= Seq(
+    "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+    "Sonatype OSS Snapshots s01" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
+  ),
+  scalacOptions ++= Seq("-Ymacro-annotations", "-Xfatal-warnings", "-deprecation"),
+  testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+)
+
 lazy val root = (project in file("."))
+  .aggregate(core, macros, examples)
+
+lazy val core = (project in file("core"))
   .settings(
     name := "zio-routes",
+    sharedSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json"   % zioJsonVersion,
+      "io.d11"  %% "zhttp"      % zioHttpVersion,
+      "dev.zio" %% "zio"        % zioVersion,
+      "dev.zio" %% "zio-schema" % zioSchemaVersion,
+      "dev.zio" %% "zio-test"   % zioVersion % Test
+    ),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+  )
+  .dependsOn(macros)
+
+lazy val macros = (project in file("macros"))
+  .settings(
+    name := "zio-routes-macros",
+    sharedSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json"   % zioJsonVersion,
+      "io.d11"  %% "zhttp"      % zioHttpVersion,
+      "dev.zio" %% "zio"        % zioVersion,
+      "dev.zio" %% "zio-schema" % zioSchemaVersion,
+      "dev.zio" %% "zio-test"   % zioVersion % Test,
+      // scala macro dependencies
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value
+    )
+  )
+
+lazy val examples = (project in file("examples"))
+  .settings(
+    name := "zio-routes-examples",
+    sharedSettings,
     libraryDependencies ++= Seq(
       "io.github.kitlangton" %% "zio-magic"  % "0.3.9",
       "dev.zio"              %% "zio-json"   % zioJsonVersion,
@@ -22,6 +70,6 @@ lazy val root = (project in file("."))
       "dev.zio"              %% "zio"        % zioVersion,
       "dev.zio"              %% "zio-schema" % zioSchemaVersion,
       "dev.zio"              %% "zio-test"   % zioVersion % Test
-    ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    )
   )
+  .dependsOn(core)

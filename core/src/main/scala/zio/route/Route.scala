@@ -3,6 +3,8 @@ package zio.route
 import zhttp.http.{Header, HttpApp, Request, Response}
 import zio.{ZIO, Zippable}
 
+import java.util.UUID
+
 sealed trait RequestParser[+A] extends Product with Serializable { self =>
   private[route] def ++[B](that: RequestParser[B])(implicit zippable: Zippable[A, B]): RequestParser[zippable.Out] =
     RequestParser.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }
@@ -191,9 +193,11 @@ object Route {
     }
 
   def path(name: String): Route[Unit] = MatchLiteral(name)
-  val string: Route[String]           = MatchParser(Parser.stringParser)
-  val int: Route[Int]                 = MatchParser(Parser.intParser)
-  val boolean: Route[Boolean]         = MatchParser(Parser.booleanParser)
+
+  val string: Route[String]   = MatchParser(Parser.stringParser)
+  val int: Route[Int]         = MatchParser(Parser.intParser)
+  val boolean: Route[Boolean] = MatchParser(Parser.booleanParser)
+  val uuid: Route[UUID]       = MatchParser(Parser.uuidParser)
 
   // Only defined as RouteAspect
   // val jsonAspect: RouteAspect[(MimeType, String)] = contentType + authHeader

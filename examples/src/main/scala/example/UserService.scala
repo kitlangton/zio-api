@@ -1,4 +1,4 @@
-package zio.route.example
+package example
 
 import zio.{Has, Ref, Task, ZIO, ZLayer}
 
