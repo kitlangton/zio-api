@@ -31,7 +31,7 @@ object EndpointParser {
         headers.parse(request)
 
       case route: route.Route[_] =>
-        Route.parseImpl(request.url.path.toList, route).map(_._2)
+        Route.parse(request.url.path.toList, route)
 
     }
 
@@ -39,7 +39,7 @@ object EndpointParser {
     def unapply(request: Request): Option[A] = f(request)
   }
 
-  def interpret[R, E, Params, Output](handler: Handler[R, E, Params, Unit, Output]): HttpApp[R, E] = {
+  def interpret[R, E, Params, Input, Output](handler: Handler[R, E, Params, Input, Output]): HttpApp[R, E] = {
     val parser                                      = UnapplyParser(parseRequest(handler.endpoint.requestParser)(_))
     implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.response
 
@@ -47,7 +47,7 @@ object EndpointParser {
       case parser(result) =>
         ZIO.debug(s"RECEIVED: $result") *>
           handler
-            .handle((result, ()))
+            .handle((result, ().asInstanceOf[Input])) // TODO: remove asInstanceOf
             .map(a => Response.jsonString(a.toJson))
     }
   }

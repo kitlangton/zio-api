@@ -1,13 +1,8 @@
 package example
 
-import zhttp.service.Server
-import zio.{App, ExitCode, Has, URIO, ZIO}
-import zio.route._
 import zio.magic._
-import zio.route.Handler.WithId
-import zio.route.macros.{Macros, Matches}
-
-import java.util.UUID
+import zio.route._
+import zio.{App, ExitCode, URIO}
 
 object RouteExample extends App {
   import Route._
@@ -30,7 +25,7 @@ object RouteExample extends App {
       .delete("users" / uuid)
 
   val endpoints =
-    allUsers ++ getUser ++ deleteUser
+    getUser ++ allUsers ++ deleteUser
 
   // Handlers
 
@@ -53,22 +48,12 @@ object RouteExample extends App {
     }
 
   val handlers =
-    allUsersHandler ++ getUserHandler ++ deleteUserHandler
-
-  def unite[EndpointIds, HandlerIds](endpoints: Endpoints[EndpointIds], handlers: Handlers[_, _, HandlerIds])(implicit
-      matches: Matches[EndpointIds, HandlerIds]
-  ) =
-    "Cool"
-
-  unite(endpoints, handlers)
-
-  val app = EndpointParser.interpret(allUsersHandler)
+    getUserHandler ++ allUsersHandler ++ deleteUserHandler
 
   val program =
-    ZIO.debug("hi")
-//    Server
-//      .start(8888, app)
-//      .inject(UserService.live, Logger.live)
+    Server(endpoints, handlers)
+      .run(8888)
+      .inject(UserService.live, Logger.live)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     program.exitCode

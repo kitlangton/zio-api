@@ -1,9 +1,10 @@
 package zio.route
 
-import zhttp.http.{Header, HttpApp, Request, Response}
-import zio.{ZIO, Zippable}
+import zhttp.http.{Header, Request}
+import zio.Zippable
 
 import java.util.UUID
+import scala.language.implicitConversions
 
 sealed trait RequestParser[+A] extends Product with Serializable { self =>
   private[route] def ++[B](that: RequestParser[B])(implicit zippable: Zippable[A, B]): RequestParser[zippable.Out] =
@@ -119,7 +120,7 @@ object QueryParams {
   case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
 }
 
-/** A DSL that allows us to describe Routes
+/** A DSL for describe Routes
   *   - ex: /users
   *   - ex: /users/:id/friends
   *   - ex: /users/:id/friends/:friendId
@@ -154,6 +155,8 @@ object Route {
   // Zip(MatchLiteral("users"), MatchParser(Parser.intParser))
   final case class Zip[A, B](left: Route[A], right: Route[B]) extends Route[(A, B)]
 
+  case object End extends Route[Unit]
+
   // case class Person(name: String, age: Int)
   // ("name" / string / "age" / int).map { case (name, age) => Person(name, age) }
   // run(route)(input) : Option[A]
@@ -161,10 +164,10 @@ object Route {
   // "name/kit/age/oops" -> None
   final case class MapRoute[A, B](route: Route[A], f: A => B) extends Route[B]
 
-  def parse[A](input: String, route: Route[A]): Option[A] =
-    parseImpl(input.split("/").toList, route).map(_._2)
+  private[route] def parse[A](input: List[String], route: Route[A]): Option[A] =
+    parseImpl(input, route).map(_._2)
 
-  def parseImpl[A](input: List[String], route: Route[A]): Option[(List[String], A)] =
+  private[route] def parseImpl[A](input: List[String], route: Route[A]): Option[(List[String], A)] =
     route match {
       case MatchLiteral(string) =>
         if (input.headOption.contains(string))
@@ -190,6 +193,11 @@ object Route {
           .map { case (input, output) =>
             (input, f(output))
           }
+
+      case End =>
+        if (input.isEmpty) Some(input -> ())
+        else None
+
     }
 
   def path(name: String): Route[Unit] = MatchLiteral(name)
@@ -203,5 +211,4 @@ object Route {
   // val jsonAspect: RouteAspect[(MimeType, String)] = contentType + authHeader
 
   implicit def string2Route(string: String): Route[Unit] = path(string)
-
 }

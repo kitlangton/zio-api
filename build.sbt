@@ -22,7 +22,7 @@ val sharedSettings = Seq(
     "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     "Sonatype OSS Snapshots s01" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
   ),
-  scalacOptions ++= Seq("-Ymacro-annotations", "-Xfatal-warnings", "-deprecation"),
+  scalacOptions ++= Seq("-Ymacro-annotations", "-deprecation", "-feature"),
   testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 )
 
