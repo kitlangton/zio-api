@@ -25,13 +25,13 @@ object EndpointParser {
         parseRequest(info)(request).map(a => f(a))
 
       case queryParams: QueryParams[_] =>
-        queryParams.parse(request)
+        QueryParams.parse(queryParams, request.url.queryParams)
 
       case headers: Headers[_] =>
-        headers.parse(request)
+        Headers.parse(headers, request.headers)
 
       case route: route.Route[_] =>
-        Route.parse(request.url.path.toList, route)
+        Route.parse(route, request.url.path.toList)
 
     }
 

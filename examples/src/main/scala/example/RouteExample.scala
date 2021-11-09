@@ -5,14 +5,12 @@ import zio.route._
 import zio.{App, ExitCode, URIO}
 
 object RouteExample extends App {
-  import Route._
-
   // Endpoints
 
   val allUsers =
     Endpoint
       .get("users")
-      .query(QueryParams.string("name").?)
+      .query(string("name").?)
       .withResponse[List[User]]
 
   val getUser =
