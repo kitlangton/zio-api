@@ -148,7 +148,7 @@ object Route {
   // ex: "/:id" (which must be an int)
   // int
   // MatchParser(Parser.intParser)
-  final case class MatchParser[A](parser: Parser[A]) extends Route[A]
+  final case class MatchParser[A](name: String, parser: Parser[A]) extends Route[A]
 
   // ex: "/users/:id"
   // "users" / int
@@ -175,7 +175,7 @@ object Route {
         else
           None
 
-      case MatchParser(parser) =>
+      case MatchParser(_, parser) =>
         input.headOption.flatMap { head =>
           parser
             .parse(head)
@@ -202,10 +202,10 @@ object Route {
 
   def path(name: String): Route[Unit] = MatchLiteral(name)
 
-  val string: Route[String]   = MatchParser(Parser.stringParser)
-  val int: Route[Int]         = MatchParser(Parser.intParser)
-  val boolean: Route[Boolean] = MatchParser(Parser.booleanParser)
-  val uuid: Route[UUID]       = MatchParser(Parser.uuidParser)
+  val string: Route[String]   = MatchParser("string", Parser.stringParser)
+  val int: Route[Int]         = MatchParser("int", Parser.intParser)
+  val boolean: Route[Boolean] = MatchParser("boolean", Parser.booleanParser)
+  val uuid: Route[UUID]       = MatchParser("uuid", Parser.uuidParser)
 
   // Only defined as RouteAspect
   // val jsonAspect: RouteAspect[(MimeType, String)] = contentType + authHeader
