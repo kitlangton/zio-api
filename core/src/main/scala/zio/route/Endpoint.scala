@@ -2,14 +2,14 @@ package zio.route
 
 import zio.json.internal.{RetractReader, Write}
 import zio.json.{EncoderOps, JsonCodec, JsonDecoder, JsonEncoder}
-import zio.{UIO, ZIO, Zippable, route}
+import zio.{UIO, ZIO, Zippable}
 import zio.schema.Schema
 
 object EndpointParser {
-  import zhttp.http.{Endpoint => _, _}
+  import zhttp.http.{Endpoint => _, Path => _, _}
 
   import RequestParser._
-  // Route[A] => List[String] => Option[A]
+  // Path[A] => List[String] => Option[A]
   // Headers[A] => Map[String, String] => Option[A]
   // QueryParams[A] => Map[String, List[String]] => Option[A]
   // RequestParser[A] => (Request => Option[A])
@@ -30,8 +30,8 @@ object EndpointParser {
       case headers: Headers[_] =>
         Headers.parse(headers, request.headers)
 
-      case route: route.Route[_] =>
-        Route.parse(route, request.url.path.toList)
+      case path: Path[_] =>
+        Path.parse(path, request.url.path.toList)
 
     }
 
@@ -55,11 +55,14 @@ object EndpointParser {
 
 final case class Endpoint[Params, Input, Output](
     method: HttpMethod,
-    requestParser: RequestParser[Params], // Route / Params / Headers
+    requestParser: RequestParser[Params], // Path / Params / Headers
     doc: Doc,
     request: JsonCodec[Input],
     response: JsonCodec[Output]
 ) { self =>
+
+  def invoke(input: Params) = ???
+
   type Id
 
   def query[A](queryParams: QueryParams[A])(implicit
@@ -69,6 +72,11 @@ final case class Endpoint[Params, Input, Output](
 
   def header[A](headers: Headers[A])(implicit zippable: Zippable[Params, A]): Endpoint[zippable.Out, Input, Output] =
     copy(requestParser = requestParser ++ headers)
+
+  def handle[R, E](
+      handle: ((Params, Input)) => ZIO[R, E, Output]
+  ): Handler.WithId[R, E, Params, Input, Output, Id] =
+    Handler(self, handle).asInstanceOf[Handler.WithId[R, E, Params, Input, Output, Id]]
 
   def streamingInput: Endpoint[Params, Input, Output] =
     ???
@@ -87,30 +95,30 @@ final case class Endpoint[Params, Input, Output](
 
 object Endpoint {
 
-  /** Creates an endpoint for DELETE request at the given route.
+  /** Creates an endpoint for DELETE request at the given path.
     */
-  def delete[A](route: Route[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.DELETE, route)
+  def delete[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.DELETE, path)
 
-  /** Creates an endpoint for a GET request at the given route.
+  /** Creates an endpoint for a GET request at the given path.
     */
-  def get[A](route: Route[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.GET, route)
+  def get[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.GET, path)
 
-  /** Creates an endpoint for a POST request at the given route.
+  /** Creates an endpoint for a POST request at the given path.
     */
-  def post[A](route: Route[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.POST, route)
+  def post[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.POST, path)
 
-  /** Creates an endpoint for a PUT request at the given route.
+  /** Creates an endpoint for a PUT request at the given path.
     */
-  def put[A](route: Route[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.PUT, route)
+  def put[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.PUT, path)
 
-  /** Creates an endpoint with the given method and route.
+  /** Creates an endpoint with the given method and path.
     */
-  private def method[Params](method: HttpMethod, route: Route[Params]): Endpoint[Params, Unit, Unit] =
-    Endpoint(method, route, Doc.empty, unitCodec, unitCodec)
+  private def method[Params](method: HttpMethod, path: Path[Params]): Endpoint[Params, Unit, Unit] =
+    Endpoint(method, path, Doc.empty, unitCodec, unitCodec)
 
   lazy val unitCodec: JsonCodec[Unit] = JsonCodec(
     (a: Unit, indent: Option[Int], out: Write) => (),

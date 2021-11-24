@@ -6,8 +6,8 @@ import zio.Zippable
 import java.util.UUID
 import scala.language.implicitConversions
 
-/** A RequestParser is a description of a Route, Query Parameters, and Headers.:
-  *   - Route: /users/:id/posts
+/** A RequestParser is a description of a Path, Query Parameters, and Headers.:
+  *   - Path: /users/:id/posts
   *   - Query Parameters: ?page=1&limit=10
   *   - Headers: X-User-Id: 1 or Accept: application/json
   */
@@ -128,49 +128,49 @@ object QueryParams {
   *   - ex: /users/:id/friends/:friendId
   *   - ex: /posts/:id/comments/:commentId
   */
-sealed trait Route[+A] extends RequestParser[A] { self =>
-  def ??(doc: Doc): Route[A] = ???
+sealed trait Path[+A] extends RequestParser[A] { self =>
+  def ??(doc: Doc): Path[A] = ???
 
-  override def map[B](f: A => B): Route[B] =
-    Route.MapRoute(self, f)
+  override def map[B](f: A => B): Path[B] =
+    Path.MapPath(self, f)
 
-  def /[B](that: Route[B])(implicit zippable: Zippable[A, B]): Route[zippable.Out] =
-    Route.Zip(this, that).map { case (a, b) => zippable.zip(a, b) }
+  def /[B](that: Path[B])(implicit zippable: Zippable[A, B]): Path[zippable.Out] =
+    Path.Zip(this, that).map { case (a, b) => zippable.zip(a, b) }
 
-  def /(string: String): Route[A] =
-    Route.Zip(this, Route.path(string)).map(_._1)
+  def /(string: String): Path[A] =
+    Path.Zip(this, Path.path(string)).map(_._1)
 }
 
-object Route {
+object Path {
   // ex: "/users"
   // "users"
   // MatchLiteral("users")
-  final case class MatchLiteral(string: String) extends Route[Unit]
+  final case class MatchLiteral(string: String) extends Path[Unit]
 
   // ex: "/:id" (which must be an int)
   // int
   // MatchParser(Parser.intParser)
-  final case class MatchParser[A](name: String, parser: Parser[A]) extends Route[A]
+  final case class MatchParser[A](name: String, parser: Parser[A]) extends Path[A]
 
   // ex: "/users/:id"
   // "users" / int
   // Zip(MatchLiteral("users"), MatchParser(Parser.intParser))
-  final case class Zip[A, B](left: Route[A], right: Route[B]) extends Route[(A, B)]
+  final case class Zip[A, B](left: Path[A], right: Path[B]) extends Path[(A, B)]
 
-  case object End extends Route[Unit]
+  case object End extends Path[Unit]
 
   // case class Person(name: String, age: Int)
   // ("name" / string / "age" / int).map { case (name, age) => Person(name, age) }
-  // run(route)(input) : Option[A]
+  // run(path)(input) : Option[A]
   // "name/kit/age/23" -> Some(Person("kit", 23))
   // "name/kit/age/oops" -> None
-  final case class MapRoute[A, B](route: Route[A], f: A => B) extends Route[B]
+  final case class MapPath[A, B](path: Path[A], f: A => B) extends Path[B]
 
-  private[route] def parse[A](route: Route[A], input: List[String]): Option[A] =
-    parseImpl(route, input).map(_._2)
+  private[route] def parse[A](path: Path[A], input: List[String]): Option[A] =
+    parseImpl(path, input).map(_._2)
 
-  private[route] def parseImpl[A](route: Route[A], input: List[String]): Option[(List[String], A)] =
-    route match {
+  private[route] def parseImpl[A](path: Path[A], input: List[String]): Option[(List[String], A)] =
+    path match {
       case MatchLiteral(string) =>
         if (input.headOption.contains(string))
           Some(input.tail -> ())
@@ -190,7 +190,7 @@ object Route {
           (input1, b) <- parseImpl(right, input0)
         } yield (input1, (a, b))
 
-      case MapRoute(route, f) =>
+      case MapPath(route, f) =>
         parseImpl(route, input)
           .map { case (input, output) =>
             (input, f(output))
@@ -202,6 +202,6 @@ object Route {
 
     }
 
-  def path(name: String): Route[Unit] = Route.MatchLiteral(name)
+  def path(name: String): Path[Unit] = Path.MatchLiteral(name)
 
 }

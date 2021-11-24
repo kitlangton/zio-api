@@ -24,14 +24,10 @@ class Macros(val c: blackbox.Context) {
     val missing = endpointTypes -- handlerTypes
 
     reportMissing("Missing", missing)
-    reportMissing("Extra", missing)
-
-//    if (extra.nonEmpty || missing.nonEmpty) {
-//      c.error(c.enclosingPosition, message)
-//    }
+    reportMissing("Extra", extra)
 
     c.Expr[Matches[A, B]](q"""
-      new Matches[${c.weakTypeOf[A]}, ${c.weakTypeOf[B]}] {}
+      new _root_.zio.route.macros.Matches[${c.weakTypeOf[A]}, ${c.weakTypeOf[B]}] {}
     """)
   }
 

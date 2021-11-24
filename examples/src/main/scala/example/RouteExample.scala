@@ -28,7 +28,7 @@ object RouteExample extends App {
   // Handlers
 
   val allUsersHandler =
-    Handler.make(allUsers) {
+    allUsers.handle {
       case (Some(filter), _) =>
         UserService.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
       case _ =>
@@ -36,24 +36,38 @@ object RouteExample extends App {
     }
 
   val getUserHandler =
-    Handler.make(getUser) { case (uuid, _) =>
+    getUser.handle { case (uuid, _) =>
       UserService.getUser(uuid)
     }
 
   val deleteUserHandler =
-    Handler.make(deleteUser) { case (uuid, _) =>
+    deleteUser.handle { case (uuid, _) =>
       UserService.deleteUser(uuid)
     }
 
   val handlers =
     getUserHandler ++ allUsersHandler ++ deleteUserHandler
 
+  // sharing the endpoints between the client and server
+  // getUser.invoke(UUID.randomUUID)
+  // vs.
+  // endpoints.invoke(getUser)(UUID.randomUUID)
+
+  // Server
   val program =
-    Server(endpoints, handlers)
+    handlers
       .run(8888)
       .inject(UserService.live, Logger.live)
+
+  // Client
+  endpoints
+
+  // Open API
+  endpoints
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     program.exitCode
 
 }
+
+case class Input[A](value: A)
