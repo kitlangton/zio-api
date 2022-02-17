@@ -2,15 +2,19 @@ package example
 
 import zio.magic._
 import zio.route._
-import zio.{App, ExitCode, URIO}
+import zio._
 
 object RouteExample extends App {
-  // Endpoints
+// Endpoints
+//  Endpoint
+//    .get("users" / "posts" / Path.int / Path[UUID])
+//    .query(Query.string("name").?)
 
   val allUsers =
     Endpoint
       .get("users")
       .query(string("name").?)
+      .header(Headers.Accept)
       .withResponse[List[User]]
 
   val getUser =
@@ -29,7 +33,7 @@ object RouteExample extends App {
 
   val allUsersHandler =
     Handler.make(allUsers) {
-      case (Some(filter), _) =>
+      case ((Some(filter), _), _) =>
         UserService.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
       case _ =>
         UserService.allUsers
@@ -51,9 +55,9 @@ object RouteExample extends App {
   val program =
     Server(endpoints, handlers)
       .run(8888)
-      .inject(UserService.live, Logger.live)
+      .provide(UserService.live, Logger.live)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    program.exitCode
+    UIO(EndpointParser.parseUrl(allUsers.requestParser)((Some("kit"), "json"))).debug.exitCode
 
 }

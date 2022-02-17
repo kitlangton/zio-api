@@ -1,12 +1,13 @@
 package zio.route
 
+import zhttp.service.Client
 import zio.json.internal.{RetractReader, Write}
-import zio.json.{EncoderOps, JsonCodec, JsonDecoder, JsonEncoder}
+import zio.json._
 import zio.{UIO, ZIO, Zippable, route}
 import zio.schema.Schema
+import zhttp.http.{Headers => _, _}
 
 object EndpointParser {
-  import zhttp.http.{Endpoint => _, _}
 
   import RequestParser._
   // Route[A] => List[String] => Option[A]
@@ -27,28 +28,103 @@ object EndpointParser {
       case queryParams: QueryParams[_] =>
         QueryParams.parse(queryParams, request.url.queryParams)
 
-      case headers: Headers[_] =>
-        Headers.parse(headers, request.headers)
+      case headers: route.Headers[_] =>
+        route.Headers.parse(headers, request.headers.toList)
 
       case route: route.Route[_] =>
         Route.parse(route, request.url.path.toList)
 
     }
 
-  final case class UnapplyParser[A](f: Request => Option[A]) {
-    def unapply(request: Request): Option[A] = f(request)
-  }
-
   def interpret[R, E, Params, Input, Output](handler: Handler[R, E, Params, Input, Output]): HttpApp[R, E] = {
-    val parser                                      = UnapplyParser(parseRequest(handler.endpoint.requestParser)(_))
-    implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.response
+    val parser: PartialFunction[Request, Params]    = (parseRequest(handler.endpoint.requestParser)(_)).unlift
+    implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.response.encoder
+    implicit val inputDecoder: JsonDecoder[Input]   = handler.endpoint.request.decoder
 
-    HttpApp.collectM { //
-      case parser(result) =>
+    Http.collectZIO { //
+      case req @ parser(result) =>
+//        req.getBodyAsString.flatMap(_.fromJson[Input])
+
         ZIO.debug(s"RECEIVED: $result") *>
           handler
             .handle((result, ().asInstanceOf[Input])) // TODO: remove asInstanceOf
-            .map(a => Response.jsonString(a.toJson))
+            .map(a => Response.json(a.toJson))
+    }
+  }
+
+  def request[Params, Input, Output](endpoint: Endpoint[Params, Input, Output]) = {
+    val method = endpoint.method
+    val url    = endpoint.requestParser
+//    Client.request((method, url))
+    ???
+  }
+
+  def parseUrl[Params](
+      requestParser: RequestParser[Params]
+  )(params: Params): (String, scala.Predef.Map[String, String]) = {
+    println("\n---")
+    println(requestParser)
+    println(params)
+    requestParser match {
+      case Zip(left, right) =>
+        params match {
+          case (a, b) =>
+            val (l, r)   = parseUrl(left)(a)
+            val (l2, r2) = parseUrl(right)(b)
+            (l + l2, r ++ r2)
+
+          case other =>
+            val (l, r)   = parseUrl(left)(other)
+            val (l2, r2) = parseUrl(right)(other)
+            (l + l2, r ++ r2)
+
+        }
+      case Map(info, f) =>
+        parseUrl(info)(params)
+      case headers: Headers[_] =>
+        headers match {
+          case Headers.Map(headers, f) =>
+            parseUrl(headers)(f(params))
+          case Headers.Zip(left, right) =>
+            val (l, r)   = parseUrl(left)(params)
+            val (l2, r2) = parseUrl(right)(params)
+            (l + l2, r ++ r2)
+          case Headers.Optional(headers) =>
+            parseUrl(headers)(params)
+          case Headers.SingleHeader(name, parser) =>
+            ("", scala.Predef.Map(name -> params.toString))
+        }
+      case p: QueryParams[_] =>
+        p match {
+          case QueryParams.SingleParam(name, parser) =>
+            (s"?$name=$params", scala.Predef.Map.empty)
+          case QueryParams.Optional(p) =>
+            params match {
+              case Some(params) =>
+                parseUrl(p)(params)
+              case None =>
+                "" -> scala.Predef.Map.empty
+            }
+        }
+      case route: Route[_] =>
+        route match {
+          case Route.MapRoute(route, f) =>
+            parseUrl(route)(f(params))
+
+          case Route.Zip(left, right) =>
+            val (l, r)   = parseUrl(left)(params)
+            val (l2, r2) = parseUrl(right)(params)
+            (l + l2, r ++ r2)
+
+          case Route.MatchLiteral(literal) =>
+            ("/" + literal, scala.Predef.Map.empty)
+
+          case Route.End =>
+            "/" -> scala.Predef.Map.empty
+
+          case Route.MatchParser(name, parser) =>
+            ("/" + name, scala.Predef.Map.empty)
+        }
     }
   }
 }

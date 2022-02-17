@@ -1,22 +1,22 @@
 package example
 
-import zio.{Has, Ref, Task, ZIO, ZLayer}
+import zio._
 
 import java.util.UUID
 
 object UserService {
   // accessors
-  def allUsers: ZIO[Has[UserService], Throwable, List[User]] =
-    ZIO.serviceWith[UserService](_.allUsers)
+  def allUsers: ZIO[UserService, Throwable, List[User]] =
+    ZIO.serviceWithZIO[UserService](_.allUsers)
 
-  def getUser(id: UUID): ZIO[Has[UserService], Throwable, Option[User]] =
-    ZIO.serviceWith[UserService](_.getUser(id))
+  def getUser(id: UUID): ZIO[UserService, Throwable, Option[User]] =
+    ZIO.serviceWithZIO[UserService](_.getUser(id))
 
-  def saveUser(name: String, email: String): ZIO[Has[UserService], Throwable, User] =
-    ZIO.serviceWith[UserService](_.saveUser(name, email))
+  def saveUser(name: String, email: String): ZIO[UserService, Throwable, User] =
+    ZIO.serviceWithZIO[UserService](_.saveUser(name, email))
 
-  def deleteUser(id: UUID): ZIO[Has[UserService], Throwable, Unit] =
-    ZIO.serviceWith[UserService](_.deleteUser(id))
+  def deleteUser(id: UUID): ZIO[UserService, Throwable, Unit] =
+    ZIO.serviceWithZIO[UserService](_.deleteUser(id))
 
   final case class UserServiceLive(log: Logger, ref: Ref[Map[UUID, User]]) extends UserService {
     override def allUsers: Task[List[User]] =
@@ -47,7 +47,7 @@ object UserService {
       stacy.id -> stacy
     )
 
-  val live: ZLayer[Has[Logger], Nothing, Has[UserService]] = {
+  val live: ZLayer[Logger, Nothing, UserService] = {
     for {
       logger <- ZIO.service[Logger]
       ref    <- Ref.make(exampleUsers)

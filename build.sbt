@@ -1,21 +1,21 @@
-ThisBuild / scalaVersion     := "2.13.6"
+ThisBuild / scalaVersion     := "2.13.8"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "com.example"
 ThisBuild / organizationName := "example"
 
-val sttpVersion       = "3.3.13"
-val zioHttpVersion    = "1.0.0.0-RC17"
-val zioJsonVersion    = "0.1.5"
+val sttpVersion       = "3.4.1"
+val zioHttpVersion    = "2.0.0-RC3"
+val zioJsonVersion    = "0.3.0-RC3"
 val zioMagicVersion   = "0.3.8"
-val zioNioVersion     = "1.0.0-RC11"
-val zioProcessVersion = "0.5.0"
-val zioVersion        = "1.0.12"
-val zioSchemaVersion  = "0.1.1"
+val zioNioVersion     = "2.0.0-RC2"
+val zioProcessVersion = "0.7.0-RC2-2"
+val zioVersion        = "2.0.0-RC2"
+val zioSchemaVersion  = "0.1.7"
 
-Global / onChangedBuildSource := IgnoreSourceChanges
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 val sharedSettings = Seq(
-  addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.0" cross CrossVersion.full),
+  addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.2" cross CrossVersion.full),
   addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
 //  scalacOptions ++= Seq("-Xfatal-warnings"),
   resolvers ++= Seq(

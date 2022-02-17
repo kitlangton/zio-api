@@ -1,6 +1,6 @@
 package example
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json._
 
 import java.util.UUID
 

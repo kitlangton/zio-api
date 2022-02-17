@@ -227,7 +227,7 @@ object EndpointToSwagger {
       )
     )
 
-  val exampleEndpoint: Endpoint[_, _, _] =
+  val exampleEndpoint =
     Endpoint.get("users" / uuid / "posts" / uuid)
 
   def main(args: Array[String]): Unit = {

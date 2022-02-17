@@ -8,11 +8,11 @@ trait Logger {
 
 object Logger {
   // accessors
-  def log(msg: String): ZIO[Has[Logger], Nothing, Unit] =
+  def log(msg: String): ZIO[Logger, Nothing, Unit] =
     ZIO.serviceWith[Logger](_.log(msg))
 
   // node of your dependency graph
-  val live: ULayer[Has[Logger]] =
+  val live: ULayer[Logger] =
     UIO(LoggerLive()).toLayer[Logger]
 
   final case class LoggerLive() extends Logger {

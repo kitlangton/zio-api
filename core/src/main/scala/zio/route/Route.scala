@@ -1,9 +1,8 @@
 package zio.route
 
-import zhttp.http.{Header, Request}
+import zhttp.http.Header
 import zio.Zippable
 
-import java.util.UUID
 import scala.language.implicitConversions
 
 /** A RequestParser is a description of a Route, Query Parameters, and Headers.:
@@ -61,7 +60,7 @@ object Headers {
   private[route] def parse[A](headers: Headers[A], requestHeaders: List[Header]): Option[A] =
     headers match {
       case SingleHeader(name, parser) =>
-        requestHeaders.collectFirst { case Header(`name`, value) =>
+        requestHeaders.collectFirst { case (`name`, value) =>
           parser.parse(value.toString)
         }.flatten
 

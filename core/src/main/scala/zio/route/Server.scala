@@ -1,9 +1,9 @@
 package zio.route
 
 import zio.route.macros.Matches
-import zio.{Has, ZIO}
+import zio.ZIO
 
-final case class Server[R <: Has[_], E <: Throwable](endpoints: Endpoints[_], handlers: Handlers[R, E, _]) {
+final case class Server[R, E <: Throwable](endpoints: Endpoints[_], handlers: Handlers[R, E, _]) {
   import zhttp.http._
 
   def run(port: Int): ZIO[R, Throwable, Nothing] =
@@ -15,11 +15,11 @@ final case class Server[R <: Has[_], E <: Throwable](endpoints: Endpoints[_], ha
       .map { handler =>
         EndpointParser.interpret(handler)
       }
-      .reduce(_ +++ _)
+      .reduce(_ ++ _)
 }
 
 object Server {
-  def make[R <: Has[_], E <: Throwable, EndpointIds, HandlerIds](
+  def make[R, E <: Throwable, EndpointIds, HandlerIds](
       endpoints: Endpoints[EndpointIds],
       handlers: Handlers[R, E, HandlerIds]
   )(implicit matches: EndpointIds Matches HandlerIds): Server[R, E] =
