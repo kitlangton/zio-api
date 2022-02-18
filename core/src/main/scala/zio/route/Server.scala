@@ -13,7 +13,7 @@ final case class Server[R, E <: Throwable](endpoints: Endpoints[_], handlers: Ha
     Handlers
       .handlersToList(handlers)
       .map { handler =>
-        EndpointParser.interpret(handler)
+        EndpointParser.handlerToHttpApp(handler.handler)
       }
       .reduce(_ ++ _)
 }

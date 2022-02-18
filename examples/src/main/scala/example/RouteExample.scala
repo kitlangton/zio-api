@@ -1,9 +1,13 @@
 package example
 
+import zhttp.http.HttpApp
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.route._
 import zio._
+import zio.json.{uuid => _, _}
+import zio.route.Handler.WithId
 
+import java.io.IOException
 import java.util.UUID
 
 // HTTP Protocol
@@ -44,31 +48,17 @@ trait ServerTrait {
 }
 
 object RouteExample extends ZIOAppDefault {
-  // Endpoints
-  //  Endpoint
-  //    .get("users" / "posts" / Path.int / Path[UUID])
-  //    .query(Query.string("name").?)
 
-  // servers and clients
-  // users?name=string
-  // request match {
-  //   case GET -> "users" / id =>
-  //     Users.getUser(id).map { user => Response.json(user.toJson) }
-  // }
-
-  // GET /users?name=kit&age=30
-  // GET /users
-  //  def allUsers(nameFilter: Option[String]): List[User]
   val allUsers: Endpoint[Option[String], Unit, List[User]] =
     Endpoint
       .get("users")
       .query(string("name").?)
-      .withOutput[List[User]]
+      .output[List[User]]
 
   val getUser: Endpoint[UUID, Unit, Option[User]] =
     Endpoint
       .get("users" / uuid)
-      .withOutput[Option[User]]
+      .output[Option[User]]
 
   val deleteUser =
     Endpoint
@@ -80,8 +70,8 @@ object RouteExample extends ZIOAppDefault {
   // Handlers
 
   val allUsersHandler =
-    Handler.make(allUsers) {
-      case (Some(filter), _) =>
+    allUsers.handle {
+      case Some(filter) =>
         UserService.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
       case _ =>
         UserService.allUsers
@@ -100,22 +90,29 @@ object RouteExample extends ZIOAppDefault {
   val handlers =
     getUserHandler ++ allUsersHandler ++ deleteUserHandler
 
+  import Endpoint.EndpointOps
+  import Endpoint.unitCodec
+
+  val shrimp: HttpApp[Console, IOException] =
+    Endpoint
+      .get("shrimp" / string)
+      .toHttp { string =>
+        Console.printLine(s"You asked for $string").as(string)
+      }
+
   val program =
-    Server(endpoints, handlers)
-      .run(8080)
-      .provide(UserService.live, Logger.live)
+    zhttp.service.Server
+      .start(8080, shrimp)
+      .provideCustom(UserService.live, Logger.live)
 
   override val run =
-//    program
+    request.delay(1.seconds) &> program
+
+  lazy val request =
     ClientParser
       .request(allUsers)(Some("olive"))
       .flatMap(_.bodyAsString)
       .debug
       .provideCustom(EventLoopGroup.auto(), ChannelFactory.auto)
-  //    ZIO.debug {
-//      // /users?name=kit Map(Accept -> json)
-//      // /users Map(Accept -> json)
-//      ClientParser.parseUrl(allUsers.requestParser)((10, None))
-//    }
 
 }
