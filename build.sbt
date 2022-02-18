@@ -64,12 +64,11 @@ lazy val examples = (project in file("examples"))
     name := "zio-routes-examples",
     sharedSettings,
     libraryDependencies ++= Seq(
-      "io.github.kitlangton" %% "zio-magic"  % "0.3.9",
-      "dev.zio"              %% "zio-json"   % zioJsonVersion,
-      "io.d11"               %% "zhttp"      % zioHttpVersion,
-      "dev.zio"              %% "zio"        % zioVersion,
-      "dev.zio"              %% "zio-schema" % zioSchemaVersion,
-      "dev.zio"              %% "zio-test"   % zioVersion % Test
+      "dev.zio" %% "zio-json"   % zioJsonVersion,
+      "io.d11"  %% "zhttp"      % zioHttpVersion,
+      "dev.zio" %% "zio"        % zioVersion,
+      "dev.zio" %% "zio-schema" % zioSchemaVersion,
+      "dev.zio" %% "zio-test"   % zioVersion % Test
     )
   )
   .dependsOn(core)

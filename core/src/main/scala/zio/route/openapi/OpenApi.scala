@@ -19,7 +19,7 @@ object Paths {
 }
 
 final case class PathObject(
-    path: Path,
+    path: ApiPath,
     operations: Map[String, OperationObject]
 )
 
@@ -32,7 +32,7 @@ object PathObject {
     }
 }
 
-final case class Path(components: List[PathComponent]) {
+final case class ApiPath(components: List[PathComponent]) {
   def render: String =
     components.map(_.render).mkString("/", "/", "")
 }
@@ -65,8 +65,8 @@ final case class ParameterObject(
     in: ParameterLocation,
     description: Option[String] = None,
     required: Boolean = false,
-    deprecated: Boolean = false,
-    allowEmptyValue: Boolean = false
+    deprecated: Boolean = false
+//    allowEmptyValue: Boolean = false
 )
 
 object ParameterObject {
@@ -94,7 +94,7 @@ object ParameterLocation {
 object OpenAPI {
   val example =
     PathObject(
-      path = Path(
+      path = ApiPath(
         List(
           PathComponent.Literal("users"),
           PathComponent.Variable("userId")
@@ -117,7 +117,7 @@ object OpenAPI {
 
   val postComments =
     PathObject(
-      path = Path(
+      path = ApiPath(
         List(
           PathComponent.Literal("posts"),
           PathComponent.Variable("postId"),
@@ -147,64 +147,73 @@ object OpenAPI {
 
 object EndpointToSwagger {
   import zio.route._
-  import Route._
+  import Path._
 
-  def getPath(requestParser: RequestParser[_]): Path =
-    Path(getPathComponents(getRoute(requestParser)))
+  def getPath(requestParser: RequestParser[_]): ApiPath =
+    ApiPath(getPathComponents(requestParser.getPath))
 
-  def getRoute(requestParser: RequestParser[_]): Route[_] =
-    getRouteImpl(requestParser).get
-
-  def getRouteImpl(requestParser: RequestParser[_]): Option[Route[_]] =
+  def getRouteImpl(requestParser: RequestParser[_]): Option[Path[_]] =
     requestParser match {
       case RequestParser.Zip(left, right) =>
         getRouteImpl(left) orElse getRouteImpl(right)
-      case RequestParser.Map(info, _) =>
+      case RequestParser.Map(info, _, _) =>
         getRouteImpl(info)
       case _: Headers[_] =>
         None
       case _: QueryParams[_] =>
         None
-      case route: Route[_] =>
+      case route: Path[_] =>
         Some(route)
     }
 
-  def getRightmostLiteral(route: Route[_]): Option[String] =
+  def getRightmostLiteral(route: Path[_]): Option[String] =
     route match {
-      case Route.MatchLiteral(literal) =>
+      case Path.MatchLiteral(literal) =>
         Some(literal)
-      case Route.Zip(left, right) =>
+      case Path.Zip(left, right) =>
         getRightmostLiteral(right) orElse getRightmostLiteral(left)
-      case Route.MapRoute(info, _) =>
+      case Path.MapPath(info, _, _) =>
         getRightmostLiteral(info)
       case _ => None
     }
 
-  def getPathComponents(route: Route[_], name: Option[String] = None): List[PathComponent] =
+  def getPathComponents(route: Path[_], name: Option[String] = None): List[PathComponent] =
     route match {
-      case Route.MatchLiteral(string) =>
+      case Path.MatchLiteral(string) =>
         List(PathComponent.Literal(string))
-      case Route.MatchParser(tpeName, _) =>
+      case Path.MatchParser(tpeName, _) =>
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
-      case Route.Zip(left, right) =>
+      case Path.Zip(left, right) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
-      case Route.End =>
+      case Path.End =>
         List.empty
-      case Route.MapRoute(route, _) =>
+      case Path.MapPath(route, _, _) =>
         getPathComponents(route)
     }
 
-  def routeToParameterObjects(route: Route[_]): List[ParameterObject] =
+  def pathToParameterObjects(route: Path[_]): List[ParameterObject] =
     route match {
       case MatchLiteral(_) => List.empty
       case MatchParser(name, _) =>
-        List(ParameterObject(name = name, in = ParameterLocation.Query, required = true))
+        List(ParameterObject(name = name, in = ParameterLocation.Path, required = true))
       case Zip(left, right) =>
-        routeToParameterObjects(left) ++ routeToParameterObjects(right)
-      case Route.End =>
+        pathToParameterObjects(left) ++ pathToParameterObjects(right)
+      case Path.End =>
         List.empty
-      case MapRoute(route, _) =>
-        routeToParameterObjects(route)
+      case MapPath(route, _, _) =>
+        pathToParameterObjects(route)
+    }
+
+  def queryParamsToParameterObjects(queryParams: QueryParams[_], optional: Boolean = false): List[ParameterObject] =
+    queryParams match {
+      case QueryParams.SingleParam(name, _) =>
+        List(ParameterObject(name = name, in = ParameterLocation.Query, required = !optional))
+      case QueryParams.Zip(left, right) =>
+        queryParamsToParameterObjects(left, optional) ++ queryParamsToParameterObjects(right, optional)
+      case QueryParams.MapParams(params, _, _) =>
+        queryParamsToParameterObjects(params, optional)
+      case QueryParams.Optional(params) =>
+        queryParamsToParameterObjects(params, true)
     }
 
   def endpointToOperation(endpoint: Endpoint[_, _, _]): Map[String, OperationObject] =
@@ -213,7 +222,8 @@ object EndpointToSwagger {
         OperationObject(
           None,
           None,
-          routeToParameterObjects(getRoute(endpoint.requestParser))
+          pathToParameterObjects(endpoint.requestParser.getPath) ++
+            endpoint.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_))
         )
     )
 
@@ -228,10 +238,16 @@ object EndpointToSwagger {
     )
 
   val exampleEndpoint =
-    Endpoint.get("users" / uuid / "posts" / uuid)
+    Endpoint
+      .get("users" / uuid / "posts" / uuid)
+      .query(string("name").?)
+
+  val exampleEndpoint2 =
+    Endpoint
+      .post("users")
 
   def main(args: Array[String]): Unit = {
-    val endpoints = List(exampleEndpoint)
+    val endpoints = List(exampleEndpoint, exampleEndpoint2)
     println(endpointToPaths(endpoints).toJsonPretty)
   }
 }
