@@ -21,9 +21,9 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
           getPathImpl(left) orElse getPathImpl(right)
         case RequestParser.Map(info, _, _) =>
           getPathImpl(info)
-        case _: Headers[_] =>
+        case _: Header[_] =>
           None
-        case _: QueryParams[_] =>
+        case _: Query[_] =>
           None
         case route: Path[_] =>
           Some(route)
@@ -32,7 +32,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
     getPathImpl(self).getOrElse(Path.End)
   }
 
-  private[route] def getQueryParams: Option[QueryParams[_]] =
+  private[route] def getQueryParams: Option[Query[_]] =
     self match {
       case zip: RequestParser.Zip[_, _] =>
         (zip.left.getQueryParams, zip.right.getQueryParams) match {
@@ -43,15 +43,15 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
         }
       case RequestParser.Map(info, _, _) =>
         info.getQueryParams
-      case route: QueryParams[_] =>
+      case route: Query[_] =>
         Some(route)
-      case _: Headers[_] =>
+      case _: Header[_] =>
         None
       case _: Path[_] =>
         None
     }
 
-  private[route] def getHeaders: Option[Headers[_]] =
+  private[route] def getHeaders: Option[Header[_]] =
     self match {
       case zip: RequestParser.Zip[_, _] =>
         (zip.left.getHeaders, zip.right.getHeaders) match {
@@ -62,9 +62,9 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
         }
       case RequestParser.Map(info, _, _) =>
         info.getHeaders
-      case route: Headers[_] =>
+      case route: Header[_] =>
         Some(route)
-      case _: QueryParams[_] =>
+      case _: Query[_] =>
         None
       case _: Path[_] =>
         None
@@ -81,61 +81,61 @@ object RequestParser {
 
 /** =HEADERS=
   */
-sealed trait Headers[A] extends RequestParser[A] {
+sealed trait Header[A] extends RequestParser[A] {
   self =>
 
-  def ? : Headers[Option[A]] =
-    Headers.Optional(self)
+  def ? : Header[Option[A]] =
+    Header.Optional(self)
 
-  override def map[B](f: A => B)(g: B => A): Headers[B] =
-    Headers.Map(self, f, g)
+  override def map[B](f: A => B)(g: B => A): Header[B] =
+    Header.Map(self, f, g)
 
-  def ++[B](that: Headers[B])(implicit zippable: Zipper[A, B]): Headers[zippable.Out] =
-    Headers.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  def ++[B](that: Header[B])(implicit zippable: Zipper[A, B]): Header[zippable.Out] =
+    Header.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
 
 }
 
-object Headers {
-  def AcceptEncoding: Headers[String] = string("Accept-Encoding")
-  def UserAgent: Headers[String]      = string("User-Agent")
-  def Host: Headers[String]           = string("Host")
-  def Accept: Headers[String]         = string("Accept")
+object Header {
+  def AcceptEncoding: Header[String] = string("Accept-Encoding")
+  def UserAgent: Header[String]      = string("User-Agent")
+  def Host: Header[String]           = string("Host")
+  def Accept: Header[String]         = string("Accept")
 
-  def string(name: String): Headers[String] = SingleHeader(name, Parser.stringParser)
+  def string(name: String): Header[String] = SingleHeader(name, Parser.stringParser)
 
-  private[route] final case class SingleHeader[A](name: String, parser: Parser[A]) extends Headers[A]
+  private[route] final case class SingleHeader[A](name: String, parser: Parser[A]) extends Header[A]
 
-  private[route] final case class Zip[A, B](left: Headers[A], right: Headers[B]) extends Headers[(A, B)]
+  private[route] final case class Zip[A, B](left: Header[A], right: Header[B]) extends Header[(A, B)]
 
-  private[route] final case class Map[A, B](headers: Headers[A], f: A => B, g: B => A) extends Headers[B]
+  private[route] final case class Map[A, B](headers: Header[A], f: A => B, g: B => A) extends Header[B]
 
-  private[route] case class Optional[A](headers: Headers[A]) extends Headers[Option[A]]
+  private[route] case class Optional[A](headers: Header[A]) extends Header[Option[A]]
 
 }
 
 /** QUERY PARAMS
   * ============
   */
-sealed trait QueryParams[A] extends RequestParser[A] { self =>
-  def ? : QueryParams[Option[A]] = QueryParams.Optional(self)
+sealed trait Query[A] extends RequestParser[A] { self =>
+  def ? : Query[Option[A]] = Query.Optional(self)
 
-  def ++[B](that: QueryParams[B])(implicit zippable: Zipper[A, B]): QueryParams[zippable.Out] =
-    QueryParams.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  def ++[B](that: Query[B])(implicit zippable: Zipper[A, B]): Query[zippable.Out] =
+    Query.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
 
-  override def map[B](f: A => B)(g: B => A): QueryParams[B] =
-    QueryParams.MapParams(self, f, g)
+  override def map[B](f: A => B)(g: B => A): Query[B] =
+    Query.MapParams(self, f, g)
 
 }
 
-object QueryParams {
+object Query {
 
-  private[route] final case class SingleParam[A](name: String, parser: Parser[A]) extends QueryParams[A]
+  private[route] final case class SingleParam[A](name: String, parser: Parser[A]) extends Query[A]
 
-  private[route] final case class Zip[A, B](left: QueryParams[A], right: QueryParams[B]) extends QueryParams[(A, B)]
+  private[route] final case class Zip[A, B](left: Query[A], right: Query[B]) extends Query[(A, B)]
 
-  private[route] final case class MapParams[A, B](params: QueryParams[A], f: A => B, g: B => A) extends QueryParams[B]
+  private[route] final case class MapParams[A, B](params: Query[A], f: A => B, g: B => A) extends Query[B]
 
-  private[route] case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
+  private[route] case class Optional[A](params: Query[A]) extends Query[Option[A]]
 
 }
 

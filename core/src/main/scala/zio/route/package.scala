@@ -15,9 +15,9 @@ package object route {
   val uuid: Path[UUID]       = Path.MatchParser("uuid", Parser.uuidParser)
 
   // Query Params
-  def string(name: String): QueryParams[String]   = QueryParams.SingleParam(name, Parser.stringParser)
-  def int(name: String): QueryParams[Int]         = QueryParams.SingleParam(name, Parser.intParser)
-  def boolean(name: String): QueryParams[Boolean] = QueryParams.SingleParam(name, Parser.booleanParser)
+  def string(name: String): Query[String]   = Query.SingleParam(name, Parser.stringParser)
+  def int(name: String): Query[Int]         = Query.SingleParam(name, Parser.intParser)
+  def boolean(name: String): Query[Boolean] = Query.SingleParam(name, Parser.booleanParser)
 
   implicit def string2Route(string: String): Path[Unit] = Path.path(string)
 

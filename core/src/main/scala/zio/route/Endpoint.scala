@@ -1,6 +1,6 @@
 package zio.route
 
-import zhttp.http.{Headers => _, Path => _, _}
+import zhttp.http.{Headers => _, Header => HttpHeader, Path => _, _}
 import zio.json._
 import zio.json.internal.{RetractReader, Write}
 import zio.route.Endpoint.unitCodec
@@ -16,12 +16,12 @@ final case class Endpoint[Params, Input, Output](
 ) { self =>
   type Id
 
-  def query[A](queryParams: QueryParams[A])(implicit
+  def query[A](queryParams: Query[A])(implicit
       zippable: Zipper[Params, A]
   ): Endpoint[zippable.Out, Input, Output] =
     copy(requestParser = requestParser ++ queryParams)
 
-  def header[A](headers: Headers[A])(implicit zippable: Zipper[Params, A]): Endpoint[zippable.Out, Input, Output] =
+  def header[A](headers: Header[A])(implicit zippable: Zipper[Params, A]): Endpoint[zippable.Out, Input, Output] =
     copy(requestParser = requestParser ++ headers)
 
   def input[Input2](implicit codec: JsonCodec[Input2]): Endpoint[Params, Input2, Output] =

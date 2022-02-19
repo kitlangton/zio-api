@@ -1,6 +1,6 @@
 package zio.route
 
-import zhttp.http.{Header, Http, HttpApp, Request, Response}
+import zhttp.http.{Header => HttpHeader, Http, HttpApp, Request, Response}
 import zio.json._
 import zio.{UIO, ZIO}
 
@@ -57,10 +57,10 @@ object EndpointParser {
       case RequestParser.Map(info, f, _) =>
         parseRequest(info)(request).map(a => f(a))
 
-      case queryParams: QueryParams[_] =>
+      case queryParams: Query[_] =>
         parseQueryParams(queryParams, request.url.queryParams)
 
-      case headers: Headers[_] =>
+      case headers: Header[_] =>
         parseHeaders(headers, request.headers.toList)
 
       case route: Path[_] =>
@@ -68,43 +68,43 @@ object EndpointParser {
     }
 
   private[route] def parseQueryParams[A](
-      queryParams: QueryParams[A],
+      queryParams: Query[A],
       requestParams: Map[String, List[String]]
   ): Option[A] =
     queryParams match {
-      case QueryParams.SingleParam(name, parser) =>
+      case Query.SingleParam(name, parser) =>
         requestParams.get(name).flatMap(_.headOption).flatMap(parser.parse)
 
-      case QueryParams.Zip(left, right) =>
+      case Query.Zip(left, right) =>
         for {
           l <- parseQueryParams(left, requestParams)
           r <- parseQueryParams(right, requestParams)
         } yield (l, r).asInstanceOf[A]
 
-      case QueryParams.Optional(params) =>
+      case Query.Optional(params) =>
         Some(parseQueryParams(params, requestParams)).asInstanceOf[Option[A]]
 
-      case QueryParams.MapParams(info, f, _) =>
+      case Query.MapParams(info, f, _) =>
         parseQueryParams(info, requestParams).map(f.asInstanceOf[Any => A])
     }
 
-  private[route] def parseHeaders[A](headers: Headers[A], requestHeaders: List[Header]): Option[A] =
+  private[route] def parseHeaders[A](headers: Header[A], requestHeaders: List[HttpHeader]): Option[A] =
     headers match {
-      case Headers.SingleHeader(name, parser) =>
+      case Header.SingleHeader(name, parser) =>
         requestHeaders.collectFirst { case (`name`, value) =>
           parser.parse(value.toString)
         }.flatten
 
-      case Headers.Zip(left, right) =>
+      case Header.Zip(left, right) =>
         for {
           left  <- parseHeaders(left, requestHeaders)
           right <- parseHeaders(right, requestHeaders)
         } yield (left, right)
 
-      case Headers.Optional(headers) =>
+      case Header.Optional(headers) =>
         Some(parseHeaders(headers, requestHeaders))
 
-      case Headers.Map(headers, f, _) =>
+      case Header.Map(headers, f, _) =>
         parseHeaders(headers, requestHeaders).map(f.asInstanceOf[Any => A])
     }
 

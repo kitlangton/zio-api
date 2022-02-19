@@ -23,10 +23,10 @@ object ClientParser {
       case RequestParser.Map(info, _, g) =>
         parseUrl(info)(g(params))
 
-      case headers: Headers[_] =>
+      case headers: Header[_] =>
         parseHeaders[Params](headers)(params)
 
-      case query: QueryParams[_] =>
+      case query: Query[_] =>
         parseQuery[Params](query)(params)
 
       case route: Path[_] =>
@@ -55,12 +55,12 @@ object ClientParser {
     }
 
   def parseQuery[Params](
-      query: QueryParams[Params]
+      query: Query[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     query match {
-      case QueryParams.SingleParam(name, parser) =>
+      case Query.SingleParam(name, parser) =>
         ("?" + name + "=" + params.toString, scala.Predef.Map.empty)
-      case QueryParams.Optional(p) =>
+      case Query.Optional(p) =>
         params match {
           case Some(params) =>
             parseQuery(p)(params)
@@ -68,28 +68,28 @@ object ClientParser {
             "" -> scala.Predef.Map.empty
         }
 
-      case QueryParams.Zip(left, right) =>
+      case Query.Zip(left, right) =>
         val (l, r)   = parseQuery(left)(params)
         val (l2, r2) = parseQuery(right)(params)
         (l + l2, r ++ r2)
 
-      case QueryParams.MapParams(info, _, g) =>
+      case Query.MapParams(info, _, g) =>
         parseQuery(info)(g(params))
     }
 
   def parseHeaders[Params](
-      headers: Headers[Params]
+      headers: Header[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     headers match {
-      case Headers.Map(headers, _, g) =>
+      case Header.Map(headers, _, g) =>
         parseHeaders(headers)(g(params))
-      case Headers.Zip(left, right) =>
+      case Header.Zip(left, right) =>
         val (l, r)   = parseHeaders(left)(params)
         val (l2, r2) = parseHeaders(right)(params)
         (l + l2, r ++ r2)
-      case Headers.Optional(headers) =>
+      case Header.Optional(headers) =>
         parseHeaders(headers)(params)
-      case Headers.SingleHeader(name, parser) =>
+      case Header.SingleHeader(name, parser) =>
         ("", scala.Predef.Map(name -> params.toString))
     }
 }

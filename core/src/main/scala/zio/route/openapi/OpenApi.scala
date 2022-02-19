@@ -158,9 +158,9 @@ object EndpointToSwagger {
         getRouteImpl(left) orElse getRouteImpl(right)
       case RequestParser.Map(info, _, _) =>
         getRouteImpl(info)
-      case _: Headers[_] =>
+      case _: Header[_] =>
         None
-      case _: QueryParams[_] =>
+      case _: Query[_] =>
         None
       case route: Path[_] =>
         Some(route)
@@ -204,15 +204,15 @@ object EndpointToSwagger {
         pathToParameterObjects(route)
     }
 
-  def queryParamsToParameterObjects(queryParams: QueryParams[_], optional: Boolean = false): List[ParameterObject] =
+  def queryParamsToParameterObjects(queryParams: Query[_], optional: Boolean = false): List[ParameterObject] =
     queryParams match {
-      case QueryParams.SingleParam(name, _) =>
+      case Query.SingleParam(name, _) =>
         List(ParameterObject(name = name, in = ParameterLocation.Query, required = !optional))
-      case QueryParams.Zip(left, right) =>
+      case Query.Zip(left, right) =>
         queryParamsToParameterObjects(left, optional) ++ queryParamsToParameterObjects(right, optional)
-      case QueryParams.MapParams(params, _, _) =>
+      case Query.MapParams(params, _, _) =>
         queryParamsToParameterObjects(params, optional)
-      case QueryParams.Optional(params) =>
+      case Query.Optional(params) =>
         queryParamsToParameterObjects(params, true)
     }
 
