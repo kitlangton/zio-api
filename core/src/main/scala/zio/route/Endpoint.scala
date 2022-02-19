@@ -3,79 +3,9 @@ package zio.route
 import zhttp.http.{Headers => _, Path => _, _}
 import zio.json._
 import zio.json.internal.{RetractReader, Write}
-import zio.route.Endpoint.{NotUnit, unitCodec}
+import zio.route.Endpoint.unitCodec
 import zio.route.Handler.WithId
 import zio.{UIO, ZIO, route}
-
-object EndpointParser {
-
-  import RequestParser._
-  // Route[A] => List[String] => Option[A]
-  // Headers[A] => Map[String, String] => Option[A]
-  // QueryParams[A] => Map[String, List[String]] => Option[A]
-  // RequestParser[A] => (Request => Option[A])
-  def parseRequest[A](requestInfo: RequestParser[A])(request: Request): Option[A] =
-    requestInfo match {
-      case Zip(left, right) =>
-        for {
-          a <- parseRequest(left)(request)
-          b <- parseRequest(right)(request)
-        } yield (a, b)
-
-      case Map(info, f, _) =>
-        parseRequest(info)(request).map(a => f(a))
-
-      case queryParams: QueryParams[_] =>
-        QueryParams.parse(queryParams, request.url.queryParams)
-
-      case headers: route.Headers[_] =>
-        route.Headers.parse(headers, request.headers.toList)
-
-      case route: route.Path[_] =>
-        Path.parse(route, request.url.path.toList)
-    }
-
-  def handlerToHttpApp[R, E, Params, Input, Output](
-      handler: HandlerImpl[R, E, Params, Input, Output]
-  ): HttpApp[R, E] = {
-    val parser: PartialFunction[Request, Params]    = (parseRequest(handler.endpoint.requestParser)(_)).unlift
-    implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.outputCodec.encoder
-    implicit val inputDecoder: JsonDecoder[Input]   = handler.endpoint.inputCodec.decoder
-
-    def withInput(request: Request)(process: Input => ZIO[R, E, Response]): ZIO[R, E, Response] =
-      if (handler.endpoint.inputCodec == unitCodec) {
-        process(().asInstanceOf[Input])
-      } else {
-        request.bodyAsString
-          .flatMap { string =>
-            string.fromJson[Input] match {
-              case Left(err)    => UIO(Response.text(s"Invalid input: $err"))
-              case Right(value) => process(value)
-            }
-          }
-          .catchAll { err =>
-            UIO(Response.text(s"Error parsing request body: $err"))
-          }
-      }
-
-    Http.collectZIO { //
-      case req @ parser(result) if req.method == handler.endpoint.method.toZioHttpMethod =>
-        ZIO.debug(s"RECEIVED: $result") *>
-          withInput(req) { input =>
-            handler
-              .handle((result, input)) // TODO: remove asInstanceOf
-              .map { a =>
-                if (handler.endpoint.outputCodec == unitCodec) {
-                  Response.ok
-                } else {
-                  Response.json(a.toJson)
-                }
-              }
-          }
-    }
-  }
-
-}
 
 final case class Endpoint[Params, Input, Output](
     method: HttpMethod,
@@ -106,6 +36,8 @@ final case class Endpoint[Params, Input, Output](
 
 object Endpoint {
 
+  type WithId[Params, Input, Output, Id0] = Endpoint[Params, Input, Output] { type Id = Id0 }
+
   trait NotUnit[A]
 
   object NotUnit {
@@ -113,44 +45,6 @@ object Endpoint {
 
     implicit val notUnitUnit1: NotUnit[Unit] = new NotUnit[Unit] {}
     implicit val notUnitUnit2: NotUnit[Unit] = new NotUnit[Unit] {}
-  }
-
-  implicit final class EndpointOps[Params, Input, Output: NotUnit, ZipOut](val self: Endpoint[Params, Input, Output])(
-      implicit zipper: Zipper.Out[Params, Input, ZipOut]
-  ) {
-    def handle[R, E](
-        f: ZipOut => ZIO[R, E, Output]
-    ): WithId[R, E, self.Id] =
-      Handler.make[R, E, Params, Input, Output](self) { case (params, input) =>
-        f(zipper.zip(params, input))
-      }
-
-    def toHttp[R, E](
-        f: ZipOut => ZIO[R, E, Output]
-    ) =
-      handle[R, E](f).toHttp
-  }
-
-  implicit final class EndpointOpsUnit[Params, Input, ZipOut](val self: Endpoint[Params, Input, Unit])(implicit
-      zipper: Zipper.Out[Params, Input, ZipOut]
-  ) {
-    def handle[R, E, Output2](
-        f: ZipOut => ZIO[R, E, Output2]
-    )(implicit
-        codec: JsonCodec[Output2]
-    ): WithId[R, E, self.Id] =
-      Handler
-        .make[R, E, Params, Input, Output2](self.output[Output2]) { case (params, input) =>
-          f(zipper.zip(params, input))
-        }
-        .asInstanceOf[WithId[R, E, self.Id]]
-
-    def toHttp[R, E, Output2](
-        f: ZipOut => ZIO[R, E, Output2]
-    )(implicit
-        codec: JsonCodec[Output2]
-    ) =
-      handle[R, E, Output2](f).toHttp
   }
 
   /** Creates an endpoint for DELETE request at the given route.

@@ -114,25 +114,6 @@ object Headers {
 
   case class Optional[A](headers: Headers[A]) extends Headers[Option[A]]
 
-  private[route] def parse[A](headers: Headers[A], requestHeaders: List[Header]): Option[A] =
-    headers match {
-      case SingleHeader(name, parser) =>
-        requestHeaders.collectFirst { case (`name`, value) =>
-          parser.parse(value.toString)
-        }.flatten
-
-      case Zip(left, right) =>
-        for {
-          left  <- parse(left, requestHeaders)
-          right <- parse(right, requestHeaders)
-        } yield (left, right)
-
-      case Optional(headers) =>
-        Some(parse(headers, requestHeaders))
-
-      case Map(headers, f, _) =>
-        parse(headers, requestHeaders).map(f.asInstanceOf[Any => A])
-    }
 }
 
 /** QUERY PARAMS
@@ -159,23 +140,6 @@ object QueryParams {
 
   case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
 
-  private[route] def parse[A](queryParams: QueryParams[A], requestParams: Map[String, List[String]]): Option[A] =
-    queryParams match {
-      case SingleParam(name, parser) =>
-        requestParams.get(name).flatMap(_.headOption).flatMap(parser.parse)
-
-      case Zip(left, right) =>
-        for {
-          l <- parse(left, requestParams)
-          r <- parse(right, requestParams)
-        } yield (l, r).asInstanceOf[A]
-
-      case Optional(params) =>
-        Some(parse(params, requestParams)).asInstanceOf[Option[A]]
-
-      case MapParams(info, f, _) =>
-        parse(info, requestParams).map(f.asInstanceOf[Any => A])
-    }
 }
 
 /** A DSL for describe Paths
@@ -221,42 +185,6 @@ object Path {
   // "name/kit/age/23" -> Some(Person("kit", 23))
   // "name/kit/age/oops" -> None
   final case class MapPath[A, B](route: Path[A], f: A => B, g: B => A) extends Path[B]
-
-  private[route] def parse[A](route: Path[A], input: List[String]): Option[A] =
-    parseImpl(route, input).map(_._2)
-
-  private[route] def parseImpl[A](route: Path[A], input: List[String]): Option[(List[String], A)] =
-    route match {
-      case MatchLiteral(string) =>
-        if (input.headOption.contains(string))
-          Some(input.tail -> ())
-        else
-          None
-
-      case MatchParser(_, parser) =>
-        input.headOption.flatMap { head =>
-          parser
-            .parse(head)
-            .map(input.tail -> _)
-        }
-
-      case Zip(left, right) =>
-        for {
-          (input0, a) <- parseImpl(left, input)
-          (input1, b) <- parseImpl(right, input0)
-        } yield (input1, (a, b))
-
-      case MapPath(route, f, _) =>
-        parseImpl(route, input)
-          .map { case (input, output) =>
-            (input, f(output))
-          }
-
-      case End =>
-        if (input.isEmpty) Some(input -> ())
-        else None
-
-    }
 
   def path(name: String): Path[Unit] = Path.MatchLiteral(name)
 
