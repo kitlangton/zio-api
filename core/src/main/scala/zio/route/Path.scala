@@ -1,8 +1,5 @@
 package zio.route
 
-import zhttp.http.Header
-import zio.Zippable
-
 import scala.language.implicitConversions
 
 /** A RequestParser is a description of a Path, Query Parameters, and Headers.:
@@ -76,9 +73,10 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
 }
 
 object RequestParser {
-  final case class Zip[A, B](left: RequestParser[A], right: RequestParser[B]) extends RequestParser[(A, B)]
+  private[route] final case class Zip[A, B](left: RequestParser[A], right: RequestParser[B])
+      extends RequestParser[(A, B)]
 
-  final case class Map[A, B](info: RequestParser[A], f: A => B, g: B => A) extends RequestParser[B]
+  private[route] final case class Map[A, B](info: RequestParser[A], f: A => B, g: B => A) extends RequestParser[B]
 }
 
 /** =HEADERS=
@@ -98,7 +96,6 @@ sealed trait Headers[A] extends RequestParser[A] {
 }
 
 object Headers {
-
   def AcceptEncoding: Headers[String] = string("Accept-Encoding")
   def UserAgent: Headers[String]      = string("User-Agent")
   def Host: Headers[String]           = string("Host")
@@ -106,13 +103,13 @@ object Headers {
 
   def string(name: String): Headers[String] = SingleHeader(name, Parser.stringParser)
 
-  final case class SingleHeader[A](name: String, parser: Parser[A]) extends Headers[A]
+  private[route] final case class SingleHeader[A](name: String, parser: Parser[A]) extends Headers[A]
 
-  final case class Zip[A, B](left: Headers[A], right: Headers[B]) extends Headers[(A, B)]
+  private[route] final case class Zip[A, B](left: Headers[A], right: Headers[B]) extends Headers[(A, B)]
 
-  final case class Map[A, B](headers: Headers[A], f: A => B, g: B => A) extends Headers[B]
+  private[route] final case class Map[A, B](headers: Headers[A], f: A => B, g: B => A) extends Headers[B]
 
-  case class Optional[A](headers: Headers[A]) extends Headers[Option[A]]
+  private[route] case class Optional[A](headers: Headers[A]) extends Headers[Option[A]]
 
 }
 
@@ -132,13 +129,13 @@ sealed trait QueryParams[A] extends RequestParser[A] { self =>
 
 object QueryParams {
 
-  final case class SingleParam[A](name: String, parser: Parser[A]) extends QueryParams[A]
+  private[route] final case class SingleParam[A](name: String, parser: Parser[A]) extends QueryParams[A]
 
-  final case class Zip[A, B](left: QueryParams[A], right: QueryParams[B]) extends QueryParams[(A, B)]
+  private[route] final case class Zip[A, B](left: QueryParams[A], right: QueryParams[B]) extends QueryParams[(A, B)]
 
-  final case class MapParams[A, B](params: QueryParams[A], f: A => B, g: B => A) extends QueryParams[B]
+  private[route] final case class MapParams[A, B](params: QueryParams[A], f: A => B, g: B => A) extends QueryParams[B]
 
-  case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
+  private[route] case class Optional[A](params: QueryParams[A]) extends QueryParams[Option[A]]
 
 }
 
@@ -162,30 +159,12 @@ sealed trait Path[A] extends RequestParser[A] { self =>
 }
 
 object Path {
-  // ex: "/users"
-  // "users"
-  // MatchLiteral("users")
-  final case class MatchLiteral(string: String) extends Path[Unit]
-
-  // ex: "/:id" (which must be an int)
-  // int
-  // MatchParser(Parser.intParser)
-  final case class MatchParser[A](name: String, parser: Parser[A]) extends Path[A]
-
-  // ex: "/users/:id"
-  // "users" / int
-  // Zip(MatchLiteral("users"), MatchParser(Parser.intParser))
-  final case class Zip[A, B](left: Path[A], right: Path[B]) extends Path[(A, B)]
-
-  case object End extends Path[Unit]
-
-  // case class Person(name: String, age: Int)
-  // ("name" / string / "age" / int).map { case (name, age) => Person(name, age) }
-  // run(route)(input) : Option[A]
-  // "name/kit/age/23" -> Some(Person("kit", 23))
-  // "name/kit/age/oops" -> None
-  final case class MapPath[A, B](route: Path[A], f: A => B, g: B => A) extends Path[B]
 
   def path(name: String): Path[Unit] = Path.MatchLiteral(name)
 
+  private[route] final case class MatchLiteral(string: String)                        extends Path[Unit]
+  private[route] final case class MatchParser[A](name: String, parser: Parser[A])     extends Path[A]
+  private[route] final case class Zip[A, B](left: Path[A], right: Path[B])            extends Path[(A, B)]
+  private[route] case object End                                                      extends Path[Unit]
+  private[route] final case class MapPath[A, B](route: Path[A], f: A => B, g: B => A) extends Path[B]
 }
