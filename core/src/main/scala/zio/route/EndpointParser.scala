@@ -29,20 +29,19 @@ object EndpointParser {
           }
       }
 
-    Http.collectZIO { //
+    Http.collectZIO {
       case req @ parser(result) if req.method == handler.endpoint.method.toZioHttpMethod =>
-        ZIO.debug(s"RECEIVED: $result") *>
-          withInput(req) { input =>
-            handler
-              .handle((result, input)) // TODO: remove asInstanceOf
-              .map { a =>
-                if (handler.endpoint.outputCodec == Endpoint.unitCodec) {
-                  Response.ok
-                } else {
-                  Response.json(a.toJson)
-                }
+        withInput(req) { input =>
+          handler
+            .handle((result, input))
+            .map { a =>
+              if (handler.endpoint.outputCodec == Endpoint.unitCodec) {
+                Response.ok
+              } else {
+                Response.json(a.toJson)
               }
-          }
+            }
+        }
     }
   }
 

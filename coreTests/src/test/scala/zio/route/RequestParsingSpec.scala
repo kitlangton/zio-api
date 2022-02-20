@@ -3,13 +3,13 @@ package zio.route
 import zhttp.http.{Headers, Request, URL}
 import zio.test._
 
-object EndpointParserSpec extends DefaultRunnableSpec {
+object RequestParsingSpec extends DefaultRunnableSpec {
 
   def parseRequest[A](endpoint: Endpoint[A, _, _]): Request => Option[A] =
     endpoint.requestParser.parseRequest
 
   def spec =
-    suite("EndpointParserSpec")(
+    suite("RequestParsingSpec")(
       test("parses basic paths") {
         val endpoint = Endpoint.get("users")
         val matcher  = parseRequest(endpoint)

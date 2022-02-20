@@ -8,9 +8,9 @@ trait Zipper[A, B] {
 
 object Zipper extends ZipperLowPriority1 {
 
-  type Out[A, B, C] = Zipper[A, B] { type Out = C }
+  type WithOut[A, B, C] = Zipper[A, B] { type Out = C }
 
-  implicit def ZipperLeftIdentity[A]: Zipper.Out[Unit, A, A] =
+  implicit def ZipperLeftIdentity[A]: Zipper.WithOut[Unit, A, A] =
     new Zipper[Unit, A] {
       type Out = A
       def zip(left: Unit, right: A) =
@@ -23,7 +23,7 @@ object Zipper extends ZipperLowPriority1 {
 
 trait ZipperLowPriority1 extends ZipperLowPriority2 {
 
-  implicit def ZipperRightIdentity[A]: Zipper.Out[A, Unit, A] =
+  implicit def ZipperRightIdentity[A]: Zipper.WithOut[A, Unit, A] =
     new Zipper[A, Unit] {
       type Out = A
       def zip(left: A, right: Unit) =
@@ -36,7 +36,7 @@ trait ZipperLowPriority1 extends ZipperLowPriority2 {
 
 trait ZipperLowPriority2 extends ZipperLowPriority3 {
 
-  implicit def Zipper3[A, B, Z]: Zipper.Out[(A, B), Z, (A, B, Z)] =
+  implicit def Zipper3[A, B, Z]: Zipper.WithOut[(A, B), Z, (A, B, Z)] =
     new Zipper[(A, B), Z] {
       type Out = (A, B, Z)
       def zip(left: (A, B), right: Z): (A, B, Z) =
@@ -46,7 +46,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
         ((out._1, out._2), out._3)
     }
 
-  implicit def Zipper4[A, B, C, Z]: Zipper.Out[(A, B, C), Z, (A, B, C, Z)] =
+  implicit def Zipper4[A, B, C, Z]: Zipper.WithOut[(A, B, C), Z, (A, B, C, Z)] =
     new Zipper[(A, B, C), Z] {
       type Out = (A, B, C, Z)
       def zip(left: (A, B, C), right: Z): (A, B, C, Z) =
@@ -56,7 +56,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
         ((out._1, out._2, out._3), out._4)
     }
 
-  implicit def Zipper5[A, B, C, D, Z]: Zipper.Out[(A, B, C, D), Z, (A, B, C, D, Z)] =
+  implicit def Zipper5[A, B, C, D, Z]: Zipper.WithOut[(A, B, C, D), Z, (A, B, C, D, Z)] =
     new Zipper[(A, B, C, D), Z] {
       type Out = (A, B, C, D, Z)
       def zip(left: (A, B, C, D), right: Z): (A, B, C, D, Z) =
@@ -66,7 +66,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
         ((out._1, out._2, out._3, out._4), out._5)
     }
 
-  implicit def Zipper6[A, B, C, D, E, Z]: Zipper.Out[(A, B, C, D, E), Z, (A, B, C, D, E, Z)] =
+  implicit def Zipper6[A, B, C, D, E, Z]: Zipper.WithOut[(A, B, C, D, E), Z, (A, B, C, D, E, Z)] =
     new Zipper[(A, B, C, D, E), Z] {
       type Out = (A, B, C, D, E, Z)
       def zip(left: (A, B, C, D, E), right: Z): (A, B, C, D, E, Z) =
@@ -76,7 +76,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), out._6)
     }
 
-  implicit def Zipper7[A, B, C, D, E, F, Z]: Zipper.Out[(A, B, C, D, E, F), Z, (A, B, C, D, E, F, Z)] =
+  implicit def Zipper7[A, B, C, D, E, F, Z]: Zipper.WithOut[(A, B, C, D, E, F), Z, (A, B, C, D, E, F, Z)] =
     new Zipper[(A, B, C, D, E, F), Z] {
       type Out = (A, B, C, D, E, F, Z)
       def zip(left: (A, B, C, D, E, F), right: Z): (A, B, C, D, E, F, Z) =
@@ -86,7 +86,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), out._7)
     }
 
-  implicit def Zipper8[A, B, C, D, E, F, G, Z]: Zipper.Out[(A, B, C, D, E, F, G), Z, (A, B, C, D, E, F, G, Z)] =
+  implicit def Zipper8[A, B, C, D, E, F, G, Z]: Zipper.WithOut[(A, B, C, D, E, F, G), Z, (A, B, C, D, E, F, G, Z)] =
     new Zipper[(A, B, C, D, E, F, G), Z] {
       type Out = (A, B, C, D, E, F, G, Z)
       def zip(left: (A, B, C, D, E, F, G), right: Z): (A, B, C, D, E, F, G, Z) =
@@ -440,7 +440,7 @@ trait ZipperLowPriority2 extends ZipperLowPriority3 {
 
 trait ZipperLowPriority3 {
 
-  implicit def Zipper2[A, B]: Zipper.Out[A, B, (A, B)] =
+  implicit def Zipper2[A, B]: Zipper.WithOut[A, B, (A, B)] =
     new Zipper[A, B] {
       type Out = (A, B)
       def zip(left: A, right: B): Out = (left, right)

@@ -1,12 +1,19 @@
 package zio.route
 
-import zhttp.service.Client
+import zhttp.http.HttpData
+import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.ZIO
 
 object ClientParser {
-  def request[Params, Input, Output](endpoint: Endpoint[Params, Input, Output])(params: Params) = {
+  def request[Params, Input, Output](host: String)(
+      endpoint: Endpoint[Params, Input, Output]
+  )(params: Params, input: Input): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val method         = endpoint.method.toZioHttpMethod
     val (url, headers) = parseUrl(endpoint.requestParser)(params)
-    Client.request(s"http://localhost:8080$url", method, zhttp.http.Headers(headers.toList))
+    val data =
+      if (endpoint.inputCodec == Endpoint.unitCodec) HttpData.empty
+      else HttpData.fromString(endpoint.inputCodec.encodeJson(input, None).toString)
+    Client.request(s"$host$url", method, zhttp.http.Headers(headers.toList), content = data)
   }
 
   def parseUrl[Params](

@@ -22,15 +22,15 @@ object Server {
   def make[R, E <: Throwable, EndpointIds, HandlerIds](
       endpoints: Endpoints[EndpointIds],
       handlers: Handlers[R, E, HandlerIds]
-//  )(implicit matches: EndpointIds Matches HandlerIds): Server[R, E] =
-  ): Server[R, E] =
+  )(implicit matches: EndpointIds Matches HandlerIds): Server[R, E] =
+//  ): Server[R, E] =
     Server(endpoints, handlers)
 
   def start[R, E <: Throwable, EndpointIds, HandlerIds](
       port: Int,
       endpoints: Endpoints[EndpointIds],
       handlers: Handlers[R, E, HandlerIds]
-  ): ZIO[R, Throwable, Nothing] =
-//  )(implicit matches: EndpointIds Matches HandlerIds): ZIO[R, Throwable, Nothing] =
+  )(implicit matches: EndpointIds Matches HandlerIds): ZIO[R, Throwable, Nothing] =
+    //  ): ZIO[R, Throwable, Nothing] =
     make(endpoints, handlers).start(port)
 }

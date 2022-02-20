@@ -64,13 +64,13 @@ object RouteExample extends ZIOAppDefault {
       .provideCustom(UserService.live, Logger.live)
 
   override val run =
-    request.delay(1.seconds) &> program
+    program
 
-  lazy val request =
-    ClientParser
-      .request(allUsers)(Some("olive"))
-      .flatMap(_.bodyAsString)
-      .debug
-      .provideCustom(EventLoopGroup.auto(), ChannelFactory.auto)
+//  lazy val request =
+//    ClientParser
+//      .request(allUsers)(Some("olive"))
+//      .flatMap(_.bodyAsString)
+//      .debug
+//      .provideCustom(EventLoopGroup.auto(), ChannelFactory.auto)
 
 }
