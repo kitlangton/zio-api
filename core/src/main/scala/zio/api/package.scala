@@ -5,6 +5,7 @@ import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.json.{DecoderOps, JsonCodec, JsonDecoder}
 import zio.api.API.NotUnit
 import zio.json.internal.{RetractReader, Write}
+import zio.schema.Schema
 
 import java.util.UUID
 import scala.language.implicitConversions
@@ -12,15 +13,15 @@ import scala.language.implicitConversions
 package object api {
 
   // Paths
-  val string: Path[String]   = Path.MatchParser("string", Parser.stringParser)
-  val int: Path[Int]         = Path.MatchParser("int", Parser.intParser)
-  val boolean: Path[Boolean] = Path.MatchParser("boolean", Parser.booleanParser)
-  val uuid: Path[UUID]       = Path.MatchParser("uuid", Parser.uuidParser)
+  val string: Path[String]   = Path.MatchParser("string", Parser.stringParser, Schema[String])
+  val int: Path[Int]         = Path.MatchParser("int", Parser.intParser, Schema[Int])
+  val boolean: Path[Boolean] = Path.MatchParser("boolean", Parser.booleanParser, Schema[Boolean])
+  val uuid: Path[UUID]       = Path.MatchParser("uuid", Parser.uuidParser, Schema[UUID])
 
   // Query Params
-  def string(name: String): Query[String]   = Query.SingleParam(name, Parser.stringParser)
-  def int(name: String): Query[Int]         = Query.SingleParam(name, Parser.intParser)
-  def boolean(name: String): Query[Boolean] = Query.SingleParam(name, Parser.booleanParser)
+  def string(name: String): Query[String]   = Query.SingleParam(name, Parser.stringParser, Schema[String])
+  def int(name: String): Query[Int]         = Query.SingleParam(name, Parser.intParser, Schema[Int])
+  def boolean(name: String): Query[Boolean] = Query.SingleParam(name, Parser.booleanParser, Schema[Boolean])
 
   implicit def stringToPath(string: String): Path[Unit] = Path.path(string)
 

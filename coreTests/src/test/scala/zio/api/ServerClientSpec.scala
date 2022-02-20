@@ -82,7 +82,7 @@ object ServerClientSpec extends DefaultRunnableSpec {
           user  <- userAPI.call(host)(userId)
         } yield assertTrue(user.get.id == userId)
       },
-      test("counter routes") {
+      test("counter api") {
         for {
           count  <- countAPI.call(host)(())
           _      <- incrementAPI.call(host)(2) <&> incrementAPI.call(host)(4)

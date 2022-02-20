@@ -1,149 +1,8 @@
 package zio.api.openapi
 
-import zio.json._
-import zio.json.ast.Json
 import zio.api.HttpMethod
-
-final case class Paths(
-    pathObjects: List[PathObject]
-)
-
-object Paths {
-  implicit val encoder: JsonEncoder[Paths] =
-    JsonEncoder[Json].contramap { (paths: Paths) =>
-      val pieces = paths.pathObjects.map { path =>
-        path.path.render -> path.operations.toJsonAST.toOption.get
-      }
-      Json.Obj(pieces: _*)
-    }
-}
-
-final case class PathObject(
-    path: ApiPath,
-    operations: Map[String, OperationObject]
-)
-
-object PathObject {
-  implicit val pathJsonEncoder: JsonEncoder[PathObject] =
-    JsonEncoder[zio.json.ast.Json].contramap { (path: PathObject) =>
-      Json.Obj(
-        path.path.render -> path.operations.toJsonAST.toOption.get
-      )
-    }
-}
-
-final case class ApiPath(components: List[PathComponent]) {
-  def render: String =
-    components.map(_.render).mkString("/", "/", "")
-}
-
-sealed trait PathComponent extends Product with Serializable {
-  def render: String = this match {
-    case PathComponent.Literal(string)  => string
-    case PathComponent.Variable(string) => s"{$string}"
-  }
-}
-
-object PathComponent {
-  final case class Literal(string: String)  extends PathComponent
-  final case class Variable(string: String) extends PathComponent
-}
-
-final case class OperationObject(
-    summary: Option[String],
-    description: Option[String],
-    parameters: List[ParameterObject]
-)
-
-object OperationObject {
-  implicit val operationObjectJsonEncoder: JsonEncoder[OperationObject] =
-    DeriveJsonEncoder.gen
-}
-
-final case class ParameterObject(
-    name: String,
-    in: ParameterLocation,
-    description: Option[String] = None,
-    required: Boolean = false,
-    deprecated: Boolean = false
-//    allowEmptyValue: Boolean = false
-)
-
-object ParameterObject {
-  implicit val encoder: JsonEncoder[ParameterObject] =
-    DeriveJsonEncoder.gen
-}
-
-sealed trait ParameterLocation extends Product with Serializable
-
-object ParameterLocation {
-  case object Query  extends ParameterLocation
-  case object Header extends ParameterLocation
-  case object Path   extends ParameterLocation
-  case object Cookie extends ParameterLocation
-
-  implicit val encoder: JsonEncoder[ParameterLocation] =
-    JsonEncoder.string.contramap {
-      case ParameterLocation.Query  => "query"
-      case ParameterLocation.Header => "header"
-      case ParameterLocation.Path   => "path"
-      case ParameterLocation.Cookie => "cookie"
-    }
-}
-
-object OpenAPI {
-  val example =
-    PathObject(
-      path = ApiPath(
-        List(
-          PathComponent.Literal("users"),
-          PathComponent.Variable("userId")
-        )
-      ),
-      operations = Map(
-        HttpMethod.GET.toString.toLowerCase -> OperationObject(
-          summary = Some("Get user"),
-          description = Some("Get user by id"),
-          parameters = List(
-            ParameterObject(
-              name = "userId",
-              in = ParameterLocation.Path,
-              required = true
-            )
-          )
-        )
-      )
-    )
-
-  val postComments =
-    PathObject(
-      path = ApiPath(
-        List(
-          PathComponent.Literal("posts"),
-          PathComponent.Variable("postId"),
-          PathComponent.Literal("comments")
-        )
-      ),
-      operations = Map(
-        HttpMethod.POST.toString.toLowerCase -> OperationObject(
-          summary = Some("Post comment"),
-          description = Some("Post comment to post"),
-          parameters = List(
-            ParameterObject(
-              name = "postId",
-              in = ParameterLocation.Path,
-              required = true
-            )
-          )
-        )
-      )
-    )
-
-  val paths = Paths(List(example, postComments))
-
-  def main(args: Array[String]): Unit =
-    println(paths.toJsonPretty)
-}
+import zio.api.openapi.model._
+import zio.json._
 
 object OpenApiInterpreter {
   import zio.api._
@@ -181,7 +40,7 @@ object OpenApiInterpreter {
     route match {
       case Path.MatchLiteral(string) =>
         List(PathComponent.Literal(string))
-      case Path.MatchParser(tpeName, _) =>
+      case Path.MatchParser(tpeName, _, _) =>
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
       case Path.Zip(left, right) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
@@ -191,13 +50,20 @@ object OpenApiInterpreter {
         getPathComponents(route)
     }
 
-  def pathToParameterObjects(route: Path[_]): List[ParameterObject] =
+  def pathToParameterObjects(route: Path[_], name: Option[String] = None): List[ParameterObject] =
     route match {
       case MatchLiteral(_) => List.empty
-      case MatchParser(name, _) =>
-        List(ParameterObject(name = name, in = ParameterLocation.Path, required = true))
+      case MatchParser(matchName, _, schema) =>
+        List(
+          ParameterObject(
+            name = name.map(_ + "Id").getOrElse(matchName),
+            in = ParameterLocation.Path,
+            required = true,
+            schema = SchemaObject.fromSchema(schema)
+          )
+        )
       case Zip(left, right) =>
-        pathToParameterObjects(left) ++ pathToParameterObjects(right)
+        pathToParameterObjects(left, name) ++ pathToParameterObjects(right, getRightmostLiteral(left))
       case Path.End =>
         List.empty
       case MapPath(route, _, _) =>
@@ -206,8 +72,15 @@ object OpenApiInterpreter {
 
   def queryParamsToParameterObjects(queryParams: Query[_], optional: Boolean = false): List[ParameterObject] =
     queryParams match {
-      case Query.SingleParam(name, _) =>
-        List(ParameterObject(name = name, in = ParameterLocation.Query, required = !optional))
+      case Query.SingleParam(name, _, schema) =>
+        List(
+          ParameterObject(
+            name = name,
+            in = ParameterLocation.Query,
+            required = !optional,
+            schema = SchemaObject.fromSchema(schema)
+          )
+        )
       case Query.Zip(left, right) =>
         queryParamsToParameterObjects(left, optional) ++ queryParamsToParameterObjects(right, optional)
       case Query.MapParams(params, _, _) =>
@@ -223,7 +96,11 @@ object OpenApiInterpreter {
           None,
           None,
           pathToParameterObjects(api.requestParser.getPath) ++
-            api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_))
+            api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
+          // TODO: Flesh this out
+          Map(
+            "200" -> ResponseObject("OK")
+          )
         )
     )
 
@@ -239,7 +116,7 @@ object OpenApiInterpreter {
 
   val exampleApi =
     API
-      .get("users" / uuid / "posts" / uuid)
+      .get("users" / int / "posts" / uuid)
       .query(string("name").?)
 
   val exampleApi2 =

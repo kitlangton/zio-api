@@ -1,6 +1,7 @@
 package zio.api
 
 import zhttp.http.{Request, Header => ZHeader}
+import zio.schema.Schema
 
 import scala.language.implicitConversions
 
@@ -187,7 +188,7 @@ sealed trait Query[A] extends RequestParser[A] { self =>
 
 object Query {
 
-  private[api] final case class SingleParam[A](name: String, parser: Parser[A]) extends Query[A] {
+  private[api] final case class SingleParam[A](name: String, parser: Parser[A], schema: Schema[A]) extends Query[A] {
     override def parseQueryImpl(params: Map[String, List[String]]): A = {
       val a = params.getOrElse(name, null)
       if (a == null) return null.asInstanceOf[A]
@@ -262,7 +263,7 @@ object Path {
       else null
   }
 
-  private[api] final case class MatchParser[A](name: String, parser: Parser[A]) extends Path[A] {
+  private[api] final case class MatchParser[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
     override private[api] def parseImpl(input: List[String]): (List[String], A) =
       if (input.isEmpty) null
       else {

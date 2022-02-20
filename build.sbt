@@ -10,7 +10,7 @@ val zioMagicVersion   = "0.3.8"
 val zioNioVersion     = "2.0.0-RC2"
 val zioProcessVersion = "0.7.0-RC2-2"
 val zioVersion        = "2.0.0-RC2"
-val zioSchemaVersion  = "0.1.7"
+val zioSchemaVersion  = "0.2.0-RC1-1"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -31,7 +31,7 @@ lazy val root = (project in file("."))
 
 lazy val core = (project in file("core"))
   .settings(
-    name := "zio-routes",
+    name := "zio-api",
     sharedSettings,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json"   % zioJsonVersion,
@@ -46,7 +46,7 @@ lazy val core = (project in file("core"))
 
 lazy val macros = (project in file("macros"))
   .settings(
-    name := "zio-routes-macros",
+    name := "zio-api-macros",
     sharedSettings,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json"   % zioJsonVersion,
@@ -61,7 +61,7 @@ lazy val macros = (project in file("macros"))
 
 lazy val examples = (project in file("examples"))
   .settings(
-    name := "zio-routes-examples",
+    name := "zio-api-examples",
     sharedSettings,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json"   % zioJsonVersion,
@@ -75,7 +75,7 @@ lazy val examples = (project in file("examples"))
 
 lazy val coreTests = (project in file("coreTests"))
   .settings(
-    name := "zio-routes-core-tests",
+    name := "zio-api-core-tests",
     sharedSettings,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json"     % zioJsonVersion,
@@ -89,7 +89,7 @@ lazy val coreTests = (project in file("coreTests"))
 
 lazy val benchmarks = (project in file("benchmarks"))
   .settings(
-    name := "zio-routes-benchmarks",
+    name := "zio-api-benchmarks",
     sharedSettings,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json" % zioJsonVersion,
