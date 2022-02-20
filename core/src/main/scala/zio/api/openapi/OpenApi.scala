@@ -1,8 +1,8 @@
-package zio.route.openapi
+package zio.api.openapi
 
 import zio.json._
 import zio.json.ast.Json
-import zio.route.HttpMethod
+import zio.api.HttpMethod
 
 final case class Paths(
     pathObjects: List[PathObject]
@@ -145,8 +145,8 @@ object OpenAPI {
     println(paths.toJsonPretty)
 }
 
-object EndpointToSwagger {
-  import zio.route._
+object OpenApiInterpreter {
+  import zio.api._
   import Path._
 
   def getPath(requestParser: RequestParser[_]): ApiPath =
@@ -216,38 +216,38 @@ object EndpointToSwagger {
         queryParamsToParameterObjects(params, true)
     }
 
-  def endpointToOperation(endpoint: Endpoint[_, _, _]): Map[String, OperationObject] =
+  def apiToOperation(api: API[_, _, _]): Map[String, OperationObject] =
     Map(
-      endpoint.method.toString.toLowerCase ->
+      api.method.toString.toLowerCase ->
         OperationObject(
           None,
           None,
-          pathToParameterObjects(endpoint.requestParser.getPath) ++
-            endpoint.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_))
+          pathToParameterObjects(api.requestParser.getPath) ++
+            api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_))
         )
     )
 
-  def endpointToPaths(endpoints: List[Endpoint[_, _, _]]): Paths =
+  def apiToPaths(apis: List[API[_, _, _]]): Paths =
     Paths(
-      endpoints.map(endpoint =>
+      apis.map(api =>
         PathObject(
-          path = getPath(endpoint.requestParser),
-          operations = endpointToOperation(endpoint)
+          path = getPath(api.requestParser),
+          operations = apiToOperation(api)
         )
       )
     )
 
-  val exampleEndpoint =
-    Endpoint
+  val exampleApi =
+    API
       .get("users" / uuid / "posts" / uuid)
       .query(string("name").?)
 
-  val exampleEndpoint2 =
-    Endpoint
+  val exampleApi2 =
+    API
       .post("users")
 
   def main(args: Array[String]): Unit = {
-    val endpoints = List(exampleEndpoint, exampleEndpoint2)
-    println(endpointToPaths(endpoints).toJsonPretty)
+    val apis = List(exampleApi, exampleApi2)
+    println(apiToPaths(apis).toJsonPretty)
   }
 }

@@ -1,4 +1,4 @@
-package zio.route
+package zio.api
 
 trait Zipper[A, B] {
   type Out

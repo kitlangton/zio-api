@@ -4,21 +4,28 @@ import zio._
 
 import java.util.UUID
 
-object UserService {
+trait Users {
+  def allUsers: Task[List[User]]
+  def getUser(id: UUID): Task[Option[User]]
+  def saveUser(name: String, email: String): Task[User]
+  def deleteUser(id: UUID): Task[Unit]
+}
+
+object Users {
   // accessors
-  def allUsers: ZIO[UserService, Throwable, List[User]] =
-    ZIO.serviceWithZIO[UserService](_.allUsers)
+  def allUsers: ZIO[Users, Throwable, List[User]] =
+    ZIO.serviceWithZIO[Users](_.allUsers)
 
-  def getUser(id: UUID): ZIO[UserService, Throwable, Option[User]] =
-    ZIO.serviceWithZIO[UserService](_.getUser(id))
+  def getUser(id: UUID): ZIO[Users, Throwable, Option[User]] =
+    ZIO.serviceWithZIO[Users](_.getUser(id))
 
-  def saveUser(name: String, email: String): ZIO[UserService, Throwable, User] =
-    ZIO.serviceWithZIO[UserService](_.saveUser(name, email))
+  def saveUser(name: String, email: String): ZIO[Users, Throwable, User] =
+    ZIO.serviceWithZIO[Users](_.saveUser(name, email))
 
-  def deleteUser(id: UUID): ZIO[UserService, Throwable, Unit] =
-    ZIO.serviceWithZIO[UserService](_.deleteUser(id))
+  def deleteUser(id: UUID): ZIO[Users, Throwable, Unit] =
+    ZIO.serviceWithZIO[Users](_.deleteUser(id))
 
-  final case class UserServiceLive(log: Logger, ref: Ref[Map[UUID, User]]) extends UserService {
+  final case class UsersLive(log: Logger, ref: Ref[Map[UUID, User]]) extends Users {
     override def allUsers: Task[List[User]] =
       log.log("GETTING ALL USERS") *>
         ref.get.map(_.values.toList)
@@ -47,17 +54,10 @@ object UserService {
       stacy.id -> stacy
     )
 
-  val live: ZLayer[Logger, Nothing, UserService] = {
+  val live: ZLayer[Logger, Nothing, Users] = {
     for {
       logger <- ZIO.service[Logger]
       ref    <- Ref.make(exampleUsers)
-    } yield UserServiceLive(logger, ref)
-  }.toLayer[UserService]
-}
-
-trait UserService {
-  def allUsers: Task[List[User]]
-  def getUser(id: UUID): Task[Option[User]]
-  def saveUser(name: String, email: String): Task[User]
-  def deleteUser(id: UUID): Task[Unit]
+    } yield UsersLive(logger, ref)
+  }.toLayer[Users]
 }

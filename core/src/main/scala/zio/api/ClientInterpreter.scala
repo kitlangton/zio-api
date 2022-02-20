@@ -1,22 +1,22 @@
-package zio.route
+package zio.api
 
 import zhttp.http.HttpData
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.ZIO
 
-object ClientParser {
-  def request[Params, Input, Output](host: String)(
-      endpoint: Endpoint[Params, Input, Output]
+private[api] object ClientInterpreter {
+  def interpret[Params, Input, Output](host: String)(
+      api: API[Params, Input, Output]
   )(params: Params, input: Input): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
-    val method         = endpoint.method.toZioHttpMethod
-    val (url, headers) = parseUrl(endpoint.requestParser)(params)
+    val method         = api.method.toZioHttpMethod
+    val (url, headers) = parseUrl(api.requestParser)(params)
     val data =
-      if (endpoint.inputCodec == Endpoint.unitCodec) HttpData.empty
-      else HttpData.fromString(endpoint.inputCodec.encodeJson(input, None).toString)
+      if (api.inputCodec == unitCodec) HttpData.empty
+      else HttpData.fromString(api.inputCodec.encodeJson(input, None).toString)
     Client.request(s"$host$url", method, zhttp.http.Headers(headers.toList), content = data)
   }
 
-  def parseUrl[Params](
+  private def parseUrl[Params](
       requestParser: RequestParser[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     requestParser match {
@@ -40,7 +40,7 @@ object ClientParser {
         parsePath[Params](route)(params)
     }
 
-  def parsePath[Params](
+  private def parsePath[Params](
       route: Path[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     route match {
@@ -61,7 +61,7 @@ object ClientParser {
         ("/" + params, scala.Predef.Map.empty)
     }
 
-  def parseQuery[Params](
+  private def parseQuery[Params](
       query: Query[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     query match {
@@ -84,7 +84,7 @@ object ClientParser {
         parseQuery(info)(g(params))
     }
 
-  def parseHeaders[Params](
+  private def parseHeaders[Params](
       headers: Header[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     headers match {

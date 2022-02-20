@@ -1,4 +1,4 @@
-package zio.route
+package zio.api
 
 sealed trait HttpMethod extends Product with Serializable { self =>
   def toZioHttpMethod: zhttp.http.Method =

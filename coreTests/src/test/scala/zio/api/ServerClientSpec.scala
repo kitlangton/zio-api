@@ -1,43 +1,40 @@
-package zio.route
+package zio.api
 
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
-import zio.route.Endpoint.unitCodec
-import zio.route.Handler.WithId
-import zio.route.ServerClientSpec.userEndpoint
 import zio.test._
 
 import java.util.UUID
 
 object ServerClientSpec extends DefaultRunnableSpec {
 
-  // Endpoints
+  // APIs
 
-  val usersEndpoint =
-    Endpoint
+  val usersAPI =
+    API
       .get("users")
       .output[List[User]]
 
-  val countEndpoint =
-    Endpoint
+  val countAPI =
+    API
       .get("counter")
       .output[Int]
 
-  val incrementEndpoint =
-    Endpoint
+  val incrementAPI =
+    API
       .post("counter")
       .input[Int]
 
-  val userEndpoint =
-    Endpoint
+  val userAPI =
+    API
       .get("users" / uuid)
       .output[Option[User]]
 
   // Handlers
 
   val usersHandler =
-    usersEndpoint.handle { _ =>
+    usersAPI.handle { _ =>
       UIO {
         List(
           User(UUID.randomUUID(), "kit@email.com"),
@@ -47,49 +44,49 @@ object ServerClientSpec extends DefaultRunnableSpec {
     }
 
   val userHandler =
-    userEndpoint.handle { id =>
+    userAPI.handle { id =>
       UIO.some(User(id, "kit@email.com"))
     }
 
   val countHandler =
-    countEndpoint.handle { _ =>
+    countAPI.handle { _ =>
       Counter.count
     }
 
   val incrementHandler =
-    incrementEndpoint.handle { int =>
+    incrementAPI.handle { int =>
       Counter.increment(int)
     }
 
   val port = 9898
   val host = s"http://localhost:$port"
 
-  private val endpoints = userEndpoint ++ usersEndpoint ++ countEndpoint ++ incrementEndpoint
+  private val apis = userAPI ++ usersAPI ++ countAPI ++ incrementAPI
 
   private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler
 
   val serverLayer =
-    Server.start(port, endpoints, handlers).fork.unit.toLayer
+    Server.start(port, apis, handlers).fork.unit.toLayer
 
   def spec: ZSpec[TestEnvironment, Any] =
     suite("ServerClientSpec")(
       test("get users") {
         for {
-          users <- usersEndpoint.call(host)(())
+          users <- usersAPI.call(host)(())
         } yield assertTrue(users.length == 2)
       },
       test("get user") {
         for {
           _     <- ZIO.service[Unit]
           userId = UUID.randomUUID()
-          user  <- userEndpoint.call(host)(userId)
+          user  <- userAPI.call(host)(userId)
         } yield assertTrue(user.get.id == userId)
       },
       test("counter routes") {
         for {
-          count  <- countEndpoint.call(host)(())
-          _      <- incrementEndpoint.call(host)(2) <&> incrementEndpoint.call(host)(4)
-          count2 <- countEndpoint.call(host)(())
+          count  <- countAPI.call(host)(())
+          _      <- incrementAPI.call(host)(2) <&> incrementAPI.call(host)(4)
+          count2 <- countAPI.call(host)(())
         } yield assertTrue(count == 0 && count2 == 6)
       }
     ).provideCustom(

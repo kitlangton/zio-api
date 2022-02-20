@@ -1,18 +1,18 @@
-package zio.route
+package zio.api
 
 import zhttp.http.{Headers, Request, URL}
 import zio.test._
 
 object RequestParsingSpec extends DefaultRunnableSpec {
 
-  def parseRequest[A](endpoint: Endpoint[A, _, _]): Request => Option[A] =
-    endpoint.requestParser.parseRequest
+  def parseRequest[A](api: API[A, _, _]): Request => Option[A] =
+    api.requestParser.parseRequest
 
   def spec =
     suite("RequestParsingSpec")(
       test("parses basic paths") {
-        val endpoint = Endpoint.get("users")
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users")
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users")).contains(()),
@@ -20,8 +20,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses chained paths") {
-        val endpoint = Endpoint.get("users" / "comments")
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users" / "comments")
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users/comments")).contains(()),
@@ -30,8 +30,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses path arguments") {
-        val endpoint = Endpoint.get("users" / int)
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users" / int)
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users/12")).contains(12),
@@ -41,8 +41,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses multiple path arguments") {
-        val endpoint = Endpoint.get("users" / int / "posts" / string)
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users" / int / "posts" / string)
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users/12/posts/my-first-post")).contains((12, "my-first-post")),
@@ -50,8 +50,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses query parameters") {
-        val endpoint = Endpoint.get("users").query(string("name") ++ int("age"))
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users").query(string("name") ++ int("age"))
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users?name=Kit&age=28")).contains(("Kit", 28)),
@@ -62,8 +62,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses optional query parameters") {
-        val endpoint = Endpoint.get("users").query(string("name").? ++ int("age").?)
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users").query(string("name").? ++ int("age").?)
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("/users?name=Kit&age=28")).contains((Some("Kit"), Some(28))),
@@ -75,8 +75,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses headers") {
-        val endpoint = Endpoint.get("users").header(Header.string("Accept") ++ Header.string("Content"))
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users").header(Header.string("Accept") ++ Header.string("Content"))
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("users", Map("Accept" -> "application/json", "Content" -> "text")))
@@ -87,8 +87,8 @@ object RequestParsingSpec extends DefaultRunnableSpec {
         )
       },
       test("parses optional headers") {
-        val endpoint = Endpoint.get("users").header(Header.string("Accept").? ++ Header.string("Content").?)
-        val matcher  = parseRequest(endpoint)
+        val api     = API.get("users").header(Header.string("Accept").? ++ Header.string("Content").?)
+        val matcher = parseRequest(api)
 
         assertTrue(
           matcher(get("users", Map("Accept" -> "application/json", "Content" -> "text")))

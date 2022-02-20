@@ -2,13 +2,14 @@ package zio
 
 import zhttp.http.HttpApp
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-import zio.json.{DecoderOps, JsonCodec}
-import zio.route.Endpoint.NotUnit
+import zio.json.{DecoderOps, JsonCodec, JsonDecoder}
+import zio.api.API.NotUnit
+import zio.json.internal.{RetractReader, Write}
 
 import java.util.UUID
 import scala.language.implicitConversions
 
-package object route {
+package object api {
 
   // Paths
   val string: Path[String]   = Path.MatchParser("string", Parser.stringParser)
@@ -23,20 +24,20 @@ package object route {
 
   implicit def stringToPath(string: String): Path[Unit] = Path.path(string)
 
-  // Endpoint Ops
+  // API Ops
 
-  implicit def endpointToOps[Params, Input, Output: NotUnit, ZipOut](
-      endpoint: Endpoint[Params, Input, Output]
-  )(implicit zipper: Zipper.WithOut[Params, Input, ZipOut]): EndpointOps[Params, Input, Output, ZipOut, endpoint.Id] =
-    new EndpointOps(endpoint)
+  implicit def apiToOps[Params, Input, Output: NotUnit, ZipOut](
+      api: API[Params, Input, Output]
+  )(implicit zipper: Zipper.WithOut[Params, Input, ZipOut]): APIOps[Params, Input, Output, ZipOut, api.Id] =
+    new APIOps(api)
 
-  implicit def endpointToOpsUnit[Params, Input, ZipOut](
-      endpoint: Endpoint[Params, Input, Unit]
-  )(implicit zipper: Zipper.WithOut[Params, Input, ZipOut]): EndpointOpsUnit[Params, Input, ZipOut, endpoint.Id] =
-    new EndpointOpsUnit(endpoint)
+  implicit def apiToOpsUnit[Params, Input, ZipOut](
+      api: API[Params, Input, Unit]
+  )(implicit zipper: Zipper.WithOut[Params, Input, ZipOut]): APIOpsUnit[Params, Input, ZipOut, api.Id] =
+    new APIOpsUnit(api)
 
-  final class EndpointOps[Params, Input, Output: NotUnit, ZipOut, Id](
-      val self: Endpoint.WithId[Params, Input, Output, Id]
+  final class APIOps[Params, Input, Output: NotUnit, ZipOut, Id](
+      val self: API.WithId[Params, Input, Output, Id]
   )(implicit
       zipper: Zipper.WithOut[Params, Input, ZipOut]
   ) {
@@ -54,7 +55,7 @@ package object route {
 
     def call(host: String)(params: ZipOut): ZIO[EventLoopGroup with ChannelFactory, Throwable, Output] = {
       val tuple = zipper.unzip(params)
-      ClientParser.request(host)(self)(tuple._1, tuple._2).flatMap(_.bodyAsString).flatMap { string =>
+      ClientInterpreter.interpret(host)(self)(tuple._1, tuple._2).flatMap(_.bodyAsString).flatMap { string =>
         self.outputCodec.decodeJson(string) match {
           case Left(err)    => ZIO.fail(new Error(s"Could not parse response: $err"))
           case Right(value) => ZIO.succeed(value)
@@ -63,7 +64,7 @@ package object route {
     }
   }
 
-  final class EndpointOpsUnit[Params, Input, ZipOut, Id](val self: Endpoint.WithId[Params, Input, Unit, Id])(implicit
+  final class APIOpsUnit[Params, Input, ZipOut, Id](val self: API.WithId[Params, Input, Unit, Id])(implicit
       zipper: Zipper.WithOut[Params, Input, ZipOut]
   ) {
     def handle[R, E, Output2](
@@ -86,8 +87,13 @@ package object route {
 
     def call(host: String)(params: ZipOut): ZIO[EventLoopGroup with ChannelFactory, Throwable, Unit] = {
       val tuple = zipper.unzip(params)
-      ClientParser.request(host)(self)(tuple._1, tuple._2).unit
+      ClientInterpreter.interpret(host)(self)(tuple._1, tuple._2).unit
     }
   }
+
+  lazy implicit val unitCodec: JsonCodec[Unit] = JsonCodec(
+    (a: Unit, indent: Option[Int], out: Write) => (),
+    (trace: List[JsonDecoder.JsonError], in: RetractReader) => ()
+  )
 
 }

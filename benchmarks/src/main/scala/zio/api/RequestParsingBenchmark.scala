@@ -1,4 +1,4 @@
-package zio.route
+package zio.api
 
 import org.openjdk.jmh.annotations._
 import zhttp.http.{Headers, Request, URL}
@@ -19,9 +19,9 @@ class RequestParsingBenchmark {
       throw new Exception("Array not correctly sorted")
     }
 
-  val endpoint  = Endpoint.get("users" / int / "comments" / int).query(string("name"))
-  val parser    = EndpointParser.parseRequest(endpoint.requestParser) _
-  val parserOpt = endpoint.requestParser.parseRequest _
+  val api       = API.get("users" / int / "comments" / int).query(string("name"))
+  val parser    = ServerInterpreter.parseRequest(api.requestParser) _
+  val parserOpt = api.requestParser.parseRequest _
   def get(url: String, headers: Map[String, String] = Map.empty): Request =
     Request(url = URL.fromString(url).toOption.get, headers = Headers(headers.toList))
   val request = get("/users/1/comments/10?name=cool")

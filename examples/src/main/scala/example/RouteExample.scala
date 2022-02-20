@@ -3,29 +3,31 @@ package example
 import zhttp.http.HttpApp
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
-import zio.route._
+import zio.api._
 
 import java.io.IOException
 import java.util.UUID
 
 object RouteExample extends ZIOAppDefault {
 
-  val allUsers: Endpoint[Option[String], Unit, List[User]] =
-    Endpoint
+  // APIs
+
+  val allUsers: API[Option[String], Unit, List[User]] =
+    API
       .get("users")
       .query(string("name").?)
       .output[List[User]]
 
-  val getUser: Endpoint[UUID, Unit, Option[User]] =
-    Endpoint
+  val getUser: API[UUID, Unit, Option[User]] =
+    API
       .get("users" / uuid)
       .output[Option[User]]
 
   val deleteUser =
-    Endpoint
+    API
       .delete("users" / uuid)
 
-  val endpoints =
+  val apis =
     getUser ++ allUsers ++ deleteUser
 
   // Handlers
@@ -33,44 +35,30 @@ object RouteExample extends ZIOAppDefault {
   val allUsersHandler =
     allUsers.handle {
       case Some(filter) =>
-        UserService.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
+        Users.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
       case _ =>
-        UserService.allUsers
+        Users.allUsers
     }
 
   val getUserHandler =
     getUser.handle { uuid =>
-      UserService.getUser(uuid)
+      Users.getUser(uuid)
     }
 
   val deleteUserHandler =
     Handler.make(deleteUser) { case (uuid, _) =>
-      UserService.deleteUser(uuid)
+      Users.deleteUser(uuid)
     }
 
   val handlers =
     getUserHandler ++ allUsersHandler ++ deleteUserHandler
 
-  val shrimp: HttpApp[Console, IOException] =
-    Endpoint
-      .get("shrimp" / string)
-      .toHttp { string =>
-        Console.printLine(s"You asked for $string").as(string)
-      }
-
   val program =
     Server
-      .start(8080, endpoints, handlers)
-      .provideCustom(UserService.live, Logger.live)
+      .start(8080, apis, handlers)
+      .provideCustom(Users.live, Logger.live)
 
   override val run =
     program
-
-//  lazy val request =
-//    ClientParser
-//      .request(allUsers)(Some("olive"))
-//      .flatMap(_.bodyAsString)
-//      .debug
-//      .provideCustom(EventLoopGroup.auto(), ChannelFactory.auto)
 
 }

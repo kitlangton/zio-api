@@ -1,4 +1,4 @@
-package zio.route
+package zio.api
 
 import scala.language.implicitConversions
 

@@ -1,4 +1,4 @@
-package zio.route.macros
+package zio.api.macros
 
 import scala.reflect.macros.blackbox
 import scala.language.experimental.macros
@@ -16,24 +16,17 @@ class Macros(val c: blackbox.Context) {
   import c.universe._
 
   def matchesImpl[A: c.WeakTypeTag, B: c.WeakTypeTag]: c.Expr[Matches[A, B]] = {
-    val endpointTypes = getIntersectionIdents(weakTypeOf[A]).toSet
-    println(weakTypeOf[B].widen)
+    val apiTypes     = getIntersectionIdents(weakTypeOf[A]).toSet
     val handlerTypes = getIntersectionIdents(weakTypeOf[B]).toSet
 
-    val extra   = handlerTypes -- endpointTypes
-    val missing = endpointTypes -- handlerTypes
+    val extra   = handlerTypes -- apiTypes
+    val missing = apiTypes -- handlerTypes
 
-    println(s"extra: $extra")
-    println(s"missing: $missing")
     reportMissing("Missing", missing)
     reportMissing("Extra", extra)
 
-//    if (extra.nonEmpty || missing.nonEmpty) {
-//      c.error(c.enclosingPosition, message)
-//    }
-
     c.Expr[Matches[A, B]](q"""
-      new _root_.zio.route.macros.Matches[${c.weakTypeOf[A]}, ${c.weakTypeOf[B]}] {}
+      new _root_.zio.api.macros.Matches[${c.weakTypeOf[A]}, ${c.weakTypeOf[B]}] {}
     """)
   }
 
@@ -47,7 +40,7 @@ class Macros(val c: blackbox.Context) {
         
 $title 
            
-$name ${pluralize("handler", missing.size)} for ${pluralize("endpoint", missing.size)}:
+$name ${pluralize("handler", missing.size)} for ${pluralize("API", missing.size)}:
   - $missingString
   
 """

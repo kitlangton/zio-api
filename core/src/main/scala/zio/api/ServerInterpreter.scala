@@ -1,20 +1,20 @@
-package zio.route
+package zio.api
 
 import zhttp.http.{Header => HttpHeader, Http, HttpApp, Request, Response}
 import zio.json._
 import zio.{UIO, ZIO}
 
-object EndpointParser {
+private[api] object ServerInterpreter {
 
-  private[route] def handlerToHttpApp[R, E, Params, Input, Output](
+  def handlerToHttpApp[R, E, Params, Input, Output](
       handler: HandlerImpl[R, E, Params, Input, Output]
   ): HttpApp[R, E] = {
-    val parser: PartialFunction[Request, Params]    = (handler.endpoint.requestParser.parseRequest _).unlift
-    implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.outputCodec.encoder
-    implicit val inputDecoder: JsonDecoder[Input]   = handler.endpoint.inputCodec.decoder
+    val parser: PartialFunction[Request, Params]    = (handler.api.requestParser.parseRequest _).unlift
+    implicit val outputEncoder: JsonEncoder[Output] = handler.api.outputCodec.encoder
+    implicit val inputDecoder: JsonDecoder[Input]   = handler.api.inputCodec.decoder
 
     def withInput(request: Request)(process: Input => ZIO[R, E, Response]): ZIO[R, E, Response] =
-      if (handler.endpoint.inputCodec == Endpoint.unitCodec) {
+      if (handler.api.inputCodec == unitCodec) {
         process(().asInstanceOf[Input])
       } else {
         request.bodyAsString
@@ -30,12 +30,12 @@ object EndpointParser {
       }
 
     Http.collectZIO {
-      case req @ parser(result) if req.method == handler.endpoint.method.toZioHttpMethod =>
+      case req @ parser(result) if req.method == handler.api.method.toZioHttpMethod =>
         withInput(req) { input =>
           handler
             .handle((result, input))
             .map { a =>
-              if (handler.endpoint.outputCodec == Endpoint.unitCodec) {
+              if (handler.api.outputCodec == unitCodec) {
                 Response.ok
               } else {
                 Response.json(a.toJson)
@@ -45,7 +45,7 @@ object EndpointParser {
     }
   }
 
-  private[route] def parseRequest[A](requestInfo: RequestParser[A])(request: Request): Option[A] =
+  private[api] def parseRequest[A](requestInfo: RequestParser[A])(request: Request): Option[A] =
     requestInfo match {
       case RequestParser.Zip(left, right) =>
         for {
@@ -66,7 +66,7 @@ object EndpointParser {
         parsePath(route, request.url.path.toList)
     }
 
-  private[route] def parseQueryParams[A](
+  private[api] def parseQueryParams[A](
       queryParams: Query[A],
       requestParams: Map[String, List[String]]
   ): Option[A] =
@@ -87,7 +87,7 @@ object EndpointParser {
         parseQueryParams(info, requestParams).map(f.asInstanceOf[Any => A])
     }
 
-  private[route] def parseHeaders[A](headers: Header[A], requestHeaders: List[HttpHeader]): Option[A] =
+  private[api] def parseHeaders[A](headers: Header[A], requestHeaders: List[HttpHeader]): Option[A] =
     headers match {
       case Header.SingleHeader(name, parser) =>
         requestHeaders.collectFirst { case (`name`, value) =>
@@ -107,10 +107,10 @@ object EndpointParser {
         parseHeaders(headers, requestHeaders).map(f.asInstanceOf[Any => A])
     }
 
-  private[route] def parsePath[A](route: Path[A], input: List[String]): Option[A] =
+  private[api] def parsePath[A](route: Path[A], input: List[String]): Option[A] =
     parsePathImpl(route, input).map(_._2)
 
-  private[route] def parsePathImpl[A](route: Path[A], input: List[String]): Option[(List[String], A)] =
+  private[api] def parsePathImpl[A](route: Path[A], input: List[String]): Option[(List[String], A)] =
     route match {
       case Path.MatchLiteral(string) =>
         if (input.headOption.contains(string)) Some(input.tail -> ())
