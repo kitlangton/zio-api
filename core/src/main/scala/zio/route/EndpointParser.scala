@@ -9,7 +9,7 @@ object EndpointParser {
   private[route] def handlerToHttpApp[R, E, Params, Input, Output](
       handler: HandlerImpl[R, E, Params, Input, Output]
   ): HttpApp[R, E] = {
-    val parser: PartialFunction[Request, Params]    = (parseRequest(handler.endpoint.requestParser)(_)).unlift
+    val parser: PartialFunction[Request, Params]    = (handler.endpoint.requestParser.parseRequest _).unlift
     implicit val outputEncoder: JsonEncoder[Output] = handler.endpoint.outputCodec.encoder
     implicit val inputDecoder: JsonDecoder[Input]   = handler.endpoint.inputCodec.decoder
 

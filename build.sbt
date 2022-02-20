@@ -72,3 +72,30 @@ lazy val examples = (project in file("examples"))
     )
   )
   .dependsOn(core)
+
+lazy val coreTests = (project in file("coreTests"))
+  .settings(
+    name := "zio-routes-core-tests",
+    sharedSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json"     % zioJsonVersion,
+      "io.d11"  %% "zhttp"        % zioHttpVersion,
+      "dev.zio" %% "zio"          % zioVersion,
+      "dev.zio" %% "zio-test"     % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+    )
+  )
+  .dependsOn(core)
+
+lazy val benchmarks = (project in file("benchmarks"))
+  .settings(
+    name := "zio-routes-benchmarks",
+    sharedSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json" % zioJsonVersion,
+      "io.d11"  %% "zhttp"    % zioHttpVersion,
+      "dev.zio" %% "zio"      % zioVersion
+    )
+  )
+  .dependsOn(core)
+  .enablePlugins(JmhPlugin)

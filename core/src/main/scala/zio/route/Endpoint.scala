@@ -1,15 +1,12 @@
 package zio.route
 
-import zhttp.http.{Headers => _, Header => HttpHeader, Path => _, _}
+import zhttp.http.{Headers => _, Path => _}
 import zio.json._
 import zio.json.internal.{RetractReader, Write}
-import zio.route.Endpoint.unitCodec
-import zio.route.Handler.WithId
-import zio.{UIO, ZIO, route}
 
 final case class Endpoint[Params, Input, Output](
     method: HttpMethod,
-    requestParser: RequestParser[Params], // Path / Params / Headers
+    requestParser: RequestParser[Params], // Path / QueryParams / Headers
     doc: Doc,
     inputCodec: JsonCodec[Input],
     outputCodec: JsonCodec[Output]
@@ -47,30 +44,30 @@ object Endpoint {
     implicit val notUnitUnit2: NotUnit[Unit] = new NotUnit[Unit] {}
   }
 
-  /** Creates an endpoint for DELETE request at the given route.
+  /** Creates an endpoint for DELETE request at the given path.
     */
-  def delete[A](route: Path[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.DELETE, route)
+  def delete[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.DELETE, path)
 
-  /** Creates an endpoint for a GET request at the given route.
+  /** Creates an endpoint for a GET request at the given path.
     */
-  def get[A](route: Path[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.GET, route)
+  def get[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.GET, path)
 
-  /** Creates an endpoint for a POST request at the given route.
+  /** Creates an endpoint for a POST request at the given path.
     */
-  def post[A](route: Path[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.POST, route)
+  def post[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.POST, path)
 
-  /** Creates an endpoint for a PUT request at the given route.
+  /** Creates an endpoint for a PUT request at the given path.
     */
-  def put[A](route: Path[A]): Endpoint[A, Unit, Unit] =
-    method(HttpMethod.PUT, route)
+  def put[A](path: Path[A]): Endpoint[A, Unit, Unit] =
+    method(HttpMethod.PUT, path)
 
-  /** Creates an endpoint with the given method and route.
+  /** Creates an endpoint with the given method and path.
     */
-  private def method[Params](method: HttpMethod, route: Path[Params]): Endpoint[Params, Unit, Unit] =
-    Endpoint(method, route, Doc.empty, unitCodec, unitCodec)
+  private def method[Params](method: HttpMethod, path: Path[Params]): Endpoint[Params, Unit, Unit] =
+    Endpoint(method, path, Doc.empty, unitCodec, unitCodec)
 
   lazy implicit val unitCodec: JsonCodec[Unit] = JsonCodec(
     (a: Unit, indent: Option[Int], out: Write) => (),

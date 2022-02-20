@@ -19,7 +19,7 @@ package object route {
   def int(name: String): Query[Int]         = Query.SingleParam(name, Parser.intParser)
   def boolean(name: String): Query[Boolean] = Query.SingleParam(name, Parser.booleanParser)
 
-  implicit def string2Route(string: String): Path[Unit] = Path.path(string)
+  implicit def stringToPath(string: String): Path[Unit] = Path.path(string)
 
   // Endpoint Ops
 
