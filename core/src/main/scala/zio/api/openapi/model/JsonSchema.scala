@@ -1,18 +1,55 @@
 package zio.api.openapi.model
 
 import zio.schema._
+
 import zio.json.{DeriveJsonEncoder, JsonEncoder}
 
-final case class SchemaObject(
-    `type`: SchemaType,
-    format: Option[String],
-    description: Option[String],
-    properties: Option[Map[String, SchemaObject]]
-)
+sealed trait SchemaObject extends Product with Serializable { self =>
+  def withNullable: SchemaObject =
+    self match {
+      case base: SchemaObject.SchemaObjectBase =>
+        base.copy(nullable = Some(true))
+      case SchemaObject.AnyOf(objects) =>
+        SchemaObject.AnyOf(objects.map(_.withNullable))
+    }
+
+}
 
 object SchemaObject {
+  final case class SchemaObjectBase(
+      `type`: SchemaType,
+      items: Option[SchemaObject],
+      format: Option[String],
+      description: Option[String],
+      properties: Option[Map[String, SchemaObject]],
+      nullable: Option[Boolean] = None
+  ) extends SchemaObject
+
+  object SchemaObjectBase {
+    implicit val encoder: JsonEncoder[SchemaObjectBase] =
+      DeriveJsonEncoder.gen[SchemaObjectBase]
+  }
+
+  final case class AnyOf(objects: List[SchemaObject]) extends SchemaObject
+
+  object AnyOf {
+    implicit val encoder: JsonEncoder[AnyOf] =
+      JsonEncoder.map[String, List[SchemaObject]].contramap[AnyOf] { oneOf =>
+        Map("anyOf" -> oneOf.objects)
+      }
+  }
+
   implicit val encoder: JsonEncoder[SchemaObject] =
-    DeriveJsonEncoder.gen
+    JsonEncoder.defer(
+      SchemaObjectBase.encoder
+        .orElseEither(AnyOf.encoder)
+        .contramap[SchemaObject] { //
+          case base: SchemaObjectBase =>
+            Left(base)
+          case oneOf: AnyOf =>
+            Right(oneOf)
+        }
+    )
 
   def schemaTypeFromStandardType[A](standardType: StandardType[A]): SchemaType =
     standardType match {
@@ -38,20 +75,50 @@ object SchemaObject {
 
   def fromSchema[A](schema: Schema[A]): SchemaObject =
     schema match {
-      case enum: Schema.Enum[_]                       => ???
-      case record: Schema.Record[_]                   => ???
-      case collection: Schema.Collection[_, _]        => ???
+      case enum: Schema.Enum[_] => ???
+      case record: Schema.Record[_] =>
+        val properties: Map[String, SchemaObject] =
+          record.structure.map { case Schema.Field(label, schema, _) =>
+            label -> fromSchema(schema)
+          }.toMap
+        SchemaObjectBase(
+          SchemaType.Object,
+          None,
+          None,
+          None,
+          Some(properties)
+        )
+      case collection: Schema.Collection[_, _] =>
+        collection match {
+          case seq: Schema.Sequence[_, _] =>
+            SchemaObjectBase(
+              `type` = SchemaType.Array,
+              items = Some(fromSchema(seq.schemaA)),
+              format = None,
+              description = None,
+              properties = None
+            )
+        }
+
       case Schema.Transform(codec, f, g, annotations) => ???
       case Schema.Primitive(standardType, annotations) =>
         val tpe    = schemaTypeFromStandardType(standardType)
         val format = formatFromStandardType(standardType)
-        SchemaObject(tpe, format, Some(s"$tpe"), None)
-      case Schema.Optional(codec, annotations)           => ???
+        SchemaObjectBase(
+          `type` = tpe,
+          items = None,
+          format = format,
+          description = Some(s"$tpe"),
+          properties = None
+        )
+      case Schema.Optional(codec, annotations) =>
+        fromSchema(codec).withNullable
       case Schema.Fail(message, annotations)             => ???
       case Schema.Tuple(left, right, annotations)        => ???
       case Schema.EitherSchema(left, right, annotations) => ???
-      case Schema.Lazy(schema0)                          => ???
-      case Schema.Meta(ast, annotations)                 => ???
+      case Schema.Lazy(schema0) =>
+        fromSchema(schema0())
+      case Schema.Meta(ast, annotations) => ???
     }
 }
 

@@ -4,6 +4,7 @@ import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
 import zio.test._
+import zio.schema._
 
 import java.util.UUID
 
@@ -120,5 +121,6 @@ object ServerClientSpec extends DefaultRunnableSpec {
 
   object User {
     implicit val codec: JsonCodec[User] = DeriveJsonCodec.gen
+    implicit val schema: Schema[User]   = DeriveSchema.gen
   }
 }

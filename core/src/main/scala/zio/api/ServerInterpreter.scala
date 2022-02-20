@@ -71,7 +71,7 @@ private[api] object ServerInterpreter {
       requestParams: Map[String, List[String]]
   ): Option[A] =
     queryParams match {
-      case Query.SingleParam(name, parser) =>
+      case Query.SingleParam(name, parser, _) =>
         requestParams.get(name).flatMap(_.headOption).flatMap(parser.parse)
 
       case Query.Zip(left, right) =>
@@ -116,7 +116,7 @@ private[api] object ServerInterpreter {
         if (input.headOption.contains(string)) Some(input.tail -> ())
         else None
 
-      case Path.MatchParser(_, parser) =>
+      case Path.MatchParser(_, parser, _) =>
         input.headOption.flatMap { head =>
           parser
             .parse(head)

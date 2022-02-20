@@ -71,7 +71,8 @@ package object api {
     def handle[R, E, Output2](
         f: ZipOut => ZIO[R, E, Output2]
     )(implicit
-        codec: JsonCodec[Output2]
+        codec: JsonCodec[Output2],
+        schema: Schema[Output2]
     ): Handler.WithId[R, E, Id] =
       Handler
         .make[R, E, Params, Input, Output2](self.output[Output2]) { case (params, input) =>
@@ -82,7 +83,8 @@ package object api {
     def toHttp[R, E, Output2](
         f: ZipOut => ZIO[R, E, Output2]
     )(implicit
-        codec: JsonCodec[Output2]
+        codec: JsonCodec[Output2],
+        schema: Schema[Output2]
     ): HttpApp[R, E] =
       handle[R, E, Output2](f).toHttp
 

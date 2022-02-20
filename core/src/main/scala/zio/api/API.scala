@@ -2,13 +2,15 @@ package zio.api
 
 import zhttp.http.{Headers => _, Path => _}
 import zio.json._
+import zio.schema.Schema
 
 final case class API[Params, Input, Output](
     method: HttpMethod,
     requestParser: RequestParser[Params], // Path / QueryParams / Headers
     doc: Doc,
     inputCodec: JsonCodec[Input],
-    outputCodec: JsonCodec[Output]
+    outputCodec: JsonCodec[Output],
+    outputSchema: Schema[Output]
 ) { self =>
   type Id
 
@@ -23,8 +25,8 @@ final case class API[Params, Input, Output](
   def input[Input2](implicit codec: JsonCodec[Input2]): API[Params, Input2, Output] =
     copy(inputCodec = codec)
 
-  def output[Output2](implicit codec: JsonCodec[Output2]): API[Params, Input, Output2] =
-    copy(outputCodec = codec)
+  def output[Output2](implicit codec: JsonCodec[Output2], schema: Schema[Output2]): API[Params, Input, Output2] =
+    copy(outputCodec = codec, outputSchema = schema)
 
   def ++(that: API[_, _, _]): APIs[Id with that.Id] =
     APIs(self) ++ that
@@ -66,6 +68,6 @@ object API {
   /** Creates an API with the given method and path.
     */
   private def method[Params](method: HttpMethod, path: Path[Params]): API[Params, Unit, Unit] =
-    API(method, path, Doc.empty, unitCodec, unitCodec)
+    API(method, path, Doc.empty, unitCodec, unitCodec, Schema[Unit])
 
 }

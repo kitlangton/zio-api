@@ -57,7 +57,7 @@ private[api] object ClientInterpreter {
         ("/" + literal, scala.Predef.Map.empty)
       case Path.End =>
         "/" -> scala.Predef.Map.empty
-      case Path.MatchParser(_, _) =>
+      case Path.MatchParser(_, _, _) =>
         ("/" + params, scala.Predef.Map.empty)
     }
 
@@ -65,7 +65,7 @@ private[api] object ClientInterpreter {
       query: Query[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     query match {
-      case Query.SingleParam(name, parser) =>
+      case Query.SingleParam(name, parser, _) =>
         ("?" + name + "=" + params.toString, scala.Predef.Map.empty)
       case Query.Optional(p) =>
         params match {

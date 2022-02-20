@@ -58,17 +58,26 @@ final case class OperationObject(
 
 object OperationObject {
   implicit val operationObjectJsonEncoder: JsonEncoder[OperationObject] =
-    DeriveJsonEncoder.gen
+    DeriveJsonEncoder.gen[OperationObject]
 }
 
 final case class ResponseObject(
-    description: String
+    description: String,
     //    headers: Map[String, HeaderObject],
-    //    content: Map[String, MediaTypeObject]
+    content: Map[String, MediaTypeObject]
 )
 
 object ResponseObject {
   implicit val responseObjectJsonEncoder: JsonEncoder[ResponseObject] =
+    DeriveJsonEncoder.gen
+}
+
+final case class MediaTypeObject(
+    schema: SchemaObject
+)
+
+object MediaTypeObject {
+  implicit val mediaTypeObjectJsonEncoder: JsonEncoder[MediaTypeObject] =
     DeriveJsonEncoder.gen
 }
 
@@ -84,7 +93,7 @@ final case class ParameterObject(
 
 object ParameterObject {
   implicit val encoder: JsonEncoder[ParameterObject] =
-    DeriveJsonEncoder.gen
+    DeriveJsonEncoder.gen[ParameterObject]
 }
 
 sealed trait ParameterLocation extends Product with Serializable

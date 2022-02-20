@@ -1,12 +1,14 @@
 package zio.api.openapi
 
-import zio.api.HttpMethod
 import zio.api.openapi.model._
-import zio.json._
+import zio.json.{uuid => _, _}
+import zio.schema._
+import zio.api._
+import Path._
+
+import java.util.UUID
 
 object OpenApiInterpreter {
-  import zio.api._
-  import Path._
 
   def getPath(requestParser: RequestParser[_]): ApiPath =
     ApiPath(getPathComponents(requestParser.getPath))
@@ -99,7 +101,11 @@ object OpenApiInterpreter {
             api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
           // TODO: Flesh this out
           Map(
-            "200" -> ResponseObject("OK")
+            "200" -> ResponseObject(
+              "OK",
+              if (api.outputSchema == Schema[Unit]) Map.empty
+              else Map("application/json" -> MediaTypeObject(SchemaObject.fromSchema(api.outputSchema)))
+            )
           )
         )
     )
@@ -118,13 +124,22 @@ object OpenApiInterpreter {
     API
       .get("users" / int / "posts" / uuid)
       .query(string("name").?)
+      .output[Option[User]]
 
   val exampleApi2 =
     API
       .post("users")
+      .output[List[User]]
 
   def main(args: Array[String]): Unit = {
     val apis = List(exampleApi, exampleApi2)
     println(apiToPaths(apis).toJsonPretty)
   }
+}
+
+final case class User(id: UUID, email: String, score: Int)
+
+object User {
+  implicit lazy val schema: Schema[User]   = DeriveSchema.gen[User]
+  implicit lazy val codec: JsonCodec[User] = DeriveJsonCodec.gen[User]
 }

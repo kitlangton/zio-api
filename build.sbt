@@ -34,11 +34,12 @@ lazy val core = (project in file("core"))
     name := "zio-api",
     sharedSettings,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-json"   % zioJsonVersion,
-      "io.d11"  %% "zhttp"      % zioHttpVersion,
-      "dev.zio" %% "zio"        % zioVersion,
-      "dev.zio" %% "zio-schema" % zioSchemaVersion,
-      "dev.zio" %% "zio-test"   % zioVersion % Test
+      "dev.zio" %% "zio-json"              % zioJsonVersion,
+      "io.d11"  %% "zhttp"                 % zioHttpVersion,
+      "dev.zio" %% "zio"                   % zioVersion,
+      "dev.zio" %% "zio-schema"            % zioSchemaVersion,
+      "dev.zio" %% "zio-schema-derivation" % zioSchemaVersion,
+      "dev.zio" %% "zio-test"              % zioVersion % Test
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
