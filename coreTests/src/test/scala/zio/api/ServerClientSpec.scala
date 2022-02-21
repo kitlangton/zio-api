@@ -17,6 +17,11 @@ object ServerClientSpec extends DefaultRunnableSpec {
       .get("users")
       .output[List[User]]
 
+  val userAPI =
+    API
+      .get("users" / uuid)
+      .output[Option[User]]
+
   val countAPI =
     API
       .get("counter")
@@ -26,11 +31,6 @@ object ServerClientSpec extends DefaultRunnableSpec {
     API
       .post("counter")
       .input[Int]
-
-  val userAPI =
-    API
-      .get("users" / uuid)
-      .output[Option[User]]
 
   // Handlers
 
@@ -62,8 +62,7 @@ object ServerClientSpec extends DefaultRunnableSpec {
   val port = 9898
   val host = s"http://localhost:$port"
 
-  private val apis = userAPI ++ usersAPI ++ countAPI ++ incrementAPI
-
+  private val apis     = userAPI ++ usersAPI ++ countAPI ++ incrementAPI
   private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler
 
   val serverLayer =

@@ -135,6 +135,7 @@ object OpenApiInterpreter {
     val apis = List(exampleApi, exampleApi2)
     println(apiToPaths(apis).toJsonPretty)
   }
+
 }
 
 final case class User(id: UUID, email: String, score: Int)
