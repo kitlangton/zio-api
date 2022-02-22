@@ -15,7 +15,7 @@ object OpenApiInterpreter {
 
   def getRouteImpl(requestParser: RequestParser[_]): Option[Path[_]] =
     requestParser match {
-      case RequestParser.Zip(left, right) =>
+      case RequestParser.ZipWith(left, right, _, _) =>
         getRouteImpl(left) orElse getRouteImpl(right)
       case RequestParser.Map(info, _, _) =>
         getRouteImpl(info)
@@ -31,7 +31,7 @@ object OpenApiInterpreter {
     route match {
       case Path.MatchLiteral(literal) =>
         Some(literal)
-      case Path.Zip(left, right) =>
+      case Path.ZipWith(left, right, f, g) =>
         getRightmostLiteral(right) orElse getRightmostLiteral(left)
       case Path.MapPath(info, _, _) =>
         getRightmostLiteral(info)
@@ -44,7 +44,7 @@ object OpenApiInterpreter {
         List(PathComponent.Literal(string))
       case Path.MatchParser(tpeName, _, _) =>
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
-      case Path.Zip(left, right) =>
+      case Path.ZipWith(left, right, f, g) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
       case Path.End =>
         List.empty
@@ -64,7 +64,7 @@ object OpenApiInterpreter {
             schema = SchemaObject.fromSchema(schema)
           )
         )
-      case Zip(left, right) =>
+      case ZipWith(left, right, f, g) =>
         pathToParameterObjects(left, name) ++ pathToParameterObjects(right, getRightmostLiteral(left))
       case Path.End =>
         List.empty
@@ -83,7 +83,7 @@ object OpenApiInterpreter {
             schema = SchemaObject.fromSchema(schema)
           )
         )
-      case Query.Zip(left, right) =>
+      case Query.ZipWith(left, right, _, _) =>
         queryParamsToParameterObjects(left, optional) ++ queryParamsToParameterObjects(right, optional)
       case Query.MapParams(params, _, _) =>
         queryParamsToParameterObjects(params, optional)

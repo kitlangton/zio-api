@@ -11,8 +11,8 @@ import scala.language.implicitConversions
   *   - Headers: X-User-Id: 1 or Accept: application/json
   */
 sealed trait RequestParser[A] extends Product with Serializable { self =>
-  private[api] def ++[B](that: RequestParser[B])(implicit zippable: Zipper[A, B]): RequestParser[zippable.Out] =
-    RequestParser.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  private[api] def ++[B](that: RequestParser[B])(implicit zipper: Zipper[A, B]): RequestParser[zipper.Out] =
+    RequestParser.ZipWith[A, B, zipper.Out](self, that, zipper.zip(_, _), zipper.unzip)
 
   def map[B](f: A => B)(g: B => A): RequestParser[B] =
     RequestParser.Map(self, f, g)
@@ -20,7 +20,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
   private[api] def getPath: Path[_] = {
     def getPathImpl(requestParser: RequestParser[_]): Option[Path[_]] =
       requestParser match {
-        case RequestParser.Zip(left, right) =>
+        case RequestParser.ZipWith(left, right, _, _) =>
           getPathImpl(left) orElse getPathImpl(right)
         case RequestParser.Map(info, _, _) =>
           getPathImpl(info)
@@ -37,7 +37,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
 
   private[api] def getQueryParams: Option[Query[_]] =
     self match {
-      case zip: RequestParser.Zip[_, _] =>
+      case zip: RequestParser.ZipWith[_, _, _] =>
         (zip.left.getQueryParams, zip.right.getQueryParams) match {
           case (Some(left), Some(right)) => Some(left ++ right)
           case (Some(left), None)        => Some(left)
@@ -56,7 +56,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
 
   private[api] def getHeaders: Option[Header[_]] =
     self match {
-      case zip: RequestParser.Zip[_, _] =>
+      case zip: RequestParser.ZipWith[_, _, _] =>
         (zip.left.getHeaders, zip.right.getHeaders) match {
           case (Some(left), Some(right)) => Some(left ++ right)
           case (Some(left), None)        => Some(left)
@@ -79,15 +79,19 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
 }
 
 object RequestParser {
-  private[api] final case class Zip[A, B](left: RequestParser[A], right: RequestParser[B])
-      extends RequestParser[(A, B)] {
+  private[api] final case class ZipWith[A, B, C](
+      left: RequestParser[A],
+      right: RequestParser[B],
+      f: (A, B) => C,
+      g: C => (A, B)
+  ) extends RequestParser[C] {
 
-    override private[api] def parseRequestImpl(request: Request): (A, B) = {
+    override private[api] def parseRequestImpl(request: Request): C = {
       val a = left.parseRequestImpl(request)
-      if (a == null) return null
+      if (a == null) return null.asInstanceOf[C]
       val b = right.parseRequestImpl(request)
-      if (b == null) return null
-      (a, b)
+      if (b == null) return null.asInstanceOf[C]
+      f(a, b)
     }
   }
 
@@ -111,8 +115,8 @@ sealed trait Header[A] extends RequestParser[A] {
   override def map[B](f: A => B)(g: B => A): Header[B] =
     Header.Map(self, f, g)
 
-  def ++[B](that: Header[B])(implicit zippable: Zipper[A, B]): Header[zippable.Out] =
-    Header.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  def ++[B](that: Header[B])(implicit zipper: Zipper[A, B]): Header[zipper.Out] =
+    Header.ZipWith[A, B, zipper.Out](self, that, zipper.zip(_, _), zipper.unzip)
 
   override private[api] def parseRequestImpl(request: Request) = {
     val map: Map[String, String] = request.headers.toChunk.toMap.map { case (k, v) => k.toString -> v.toString }
@@ -141,13 +145,14 @@ object Header {
     }
   }
 
-  private[api] final case class Zip[A, B](left: Header[A], right: Header[B]) extends Header[(A, B)] {
-    override private[api] def parseHeaders(requestHeaders: Predef.Map[String, String]): (A, B) = {
+  private[api] final case class ZipWith[A, B, C](left: Header[A], right: Header[B], f: (A, B) => C, g: C => (A, B))
+      extends Header[C] {
+    override private[api] def parseHeaders(requestHeaders: Predef.Map[String, String]): C = {
       val a = left.parseHeaders(requestHeaders)
-      if (a == null) return null
+      if (a == null) return null.asInstanceOf[C]
       val b = right.parseHeaders(requestHeaders)
-      if (b == null) return null
-      (a, b)
+      if (b == null) return null.asInstanceOf[C]
+      f(a, b)
     }
   }
 
@@ -174,8 +179,8 @@ object Header {
 sealed trait Query[A] extends RequestParser[A] { self =>
   def ? : Query[Option[A]] = Query.Optional(self)
 
-  def ++[B](that: Query[B])(implicit zippable: Zipper[A, B]): Query[zippable.Out] =
-    Query.Zip(self, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  def ++[B](that: Query[B])(implicit zipper: Zipper[A, B]): Query[zipper.Out] =
+    Query.ZipWith[A, B, zipper.Out](self, that, zipper.zip(_, _), zipper.unzip)
 
   override def map[B](f: A => B)(g: B => A): Query[B] =
     Query.MapParams(self, f, g)
@@ -199,13 +204,14 @@ object Query {
 
   }
 
-  private[api] final case class Zip[A, B](left: Query[A], right: Query[B]) extends Query[(A, B)] {
-    override def parseQueryImpl(params: Map[String, List[String]]): (A, B) = {
+  private[api] final case class ZipWith[A, B, C](left: Query[A], right: Query[B], f: (A, B) => C, g: C => (A, B))
+      extends Query[C] {
+    override def parseQueryImpl(params: Map[String, List[String]]): C = {
       val a = left.parseQueryImpl(params)
-      if (a == null) return null
+      if (a == null) return null.asInstanceOf[C]
       val b = right.parseQueryImpl(params)
-      if (b == null) return null
-      (a, b)
+      if (b == null) return null.asInstanceOf[C]
+      f(a, b)
     }
 
   }
@@ -238,11 +244,11 @@ sealed trait Path[A] extends RequestParser[A] { self =>
   override def map[B](f: A => B)(g: B => A): Path[B] =
     Path.MapPath(self, f, g)
 
-  def /[B](that: Path[B])(implicit zippable: Zipper[A, B]): Path[zippable.Out] =
-    Path.Zip(this, that).map { case (a, b) => zippable.zip(a, b) }(zippable.unzip)
+  def /[B](that: Path[B])(implicit zipper: Zipper[A, B]): Path[zipper.Out] =
+    Path.ZipWith[A, B, zipper.Out](this, that, zipper.zip(_, _), zipper.unzip)
 
   def /(string: String): Path[A] =
-    Path.Zip(this, Path.path(string)).map(_._1)(a => (a, ()))
+    Path.ZipWith(this, Path.path(string), (a: A, b: Unit) => a, a => (a, ()))
 
   override private[api] def parseRequestImpl(request: Request): A = {
     val a = parseImpl(request.url.path.toList)
@@ -273,15 +279,16 @@ object Path {
       }
   }
 
-  private[api] final case class Zip[A, B](left: Path[A], right: Path[B]) extends Path[(A, B)] {
-    override private[api] def parseImpl(input: List[String]): (List[String], (A, B)) =
+  private[api] final case class ZipWith[A, B, C](left: Path[A], right: Path[B], f: (A, B) => C, g: C => (A, B))
+      extends Path[C] {
+    override private[api] def parseImpl(input: List[String]): (List[String], C) =
       if (input.isEmpty) null
       else {
         val a = left.parseImpl(input)
         if (a eq null) return null
         val b = right.parseImpl(a._1)
         if (b eq null) return null
-        (b._1, (a._2, b._2))
+        (b._1, f(a._2, b._2))
       }
   }
 

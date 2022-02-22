@@ -20,8 +20,8 @@ private[api] object ClientInterpreter {
       requestParser: RequestParser[Params]
   )(params: Params): (String, scala.Predef.Map[String, String]) =
     requestParser match {
-      case RequestParser.Zip(left, right) =>
-        params match {
+      case RequestParser.ZipWith(left, right, _, g) =>
+        g(params) match {
           case (a, b) =>
             val (l, r)   = parseUrl(left)(a)
             val (l2, r2) = parseUrl(right)(b)
@@ -46,8 +46,8 @@ private[api] object ClientInterpreter {
     route match {
       case Path.MapPath(route, _, g) =>
         parsePath(route)(g(params))
-      case Path.Zip(left, right) =>
-        params match {
+      case Path.ZipWith(left, right, _, g) =>
+        g(params) match {
           case (a, b) =>
             val (l, r)   = parsePath(left)(a)
             val (l2, r2) = parsePath(right)(b)
@@ -75,10 +75,13 @@ private[api] object ClientInterpreter {
             "" -> scala.Predef.Map.empty
         }
 
-      case Query.Zip(left, right) =>
-        val (l, r)   = parseQuery(left)(params)
-        val (l2, r2) = parseQuery(right)(params)
-        (l + l2, r ++ r2)
+      case Query.ZipWith(left, right, _, g) =>
+        g(params) match {
+          case (a, b) =>
+            val (l, r)   = parseQuery(left)(a)
+            val (l2, r2) = parseQuery(right)(b)
+            (l + l2, r ++ r2)
+        }
 
       case Query.MapParams(info, _, g) =>
         parseQuery(info)(g(params))
@@ -90,10 +93,13 @@ private[api] object ClientInterpreter {
     headers match {
       case Header.Map(headers, _, g) =>
         parseHeaders(headers)(g(params))
-      case Header.Zip(left, right) =>
-        val (l, r)   = parseHeaders(left)(params)
-        val (l2, r2) = parseHeaders(right)(params)
-        (l + l2, r ++ r2)
+      case Header.ZipWith(left, right, _, g) =>
+        g(params) match {
+          case (a, b) =>
+            val (l, r)   = parseHeaders(left)(a)
+            val (l2, r2) = parseHeaders(right)(b)
+            (l + l2, r ++ r2)
+        }
       case Header.Optional(headers) =>
         parseHeaders(headers)(params)
       case Header.SingleHeader(name, parser) =>
