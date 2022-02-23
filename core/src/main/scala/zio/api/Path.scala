@@ -251,60 +251,70 @@ sealed trait Path[A] extends RequestParser[A] { self =>
     Path.ZipWith(this, Path.path(string), (a: A, b: Unit) => a, a => (a, ()))
 
   override private[api] def parseRequestImpl(request: Request): A = {
-    val a = parseImpl(request.url.path.toList)
-    if (a == null) return null.asInstanceOf[A]
-    a._2
+    val state  = PathState(request.url.path.toList)
+    val result = parseImpl(state)
+    if (state.failed) null.asInstanceOf[A]
+    else result
   }
 
-  private[api] def parseImpl(input: List[String]): (List[String], A)
+  private[api] def parseImpl(pathState: PathState): A
 }
+
+final case class PathState(var input: List[String], var failed: Boolean = false)
 
 object Path {
   def path(name: String): Path[Unit] = Path.MatchLiteral(name)
 
   private[api] final case class MatchLiteral(string: String) extends Path[Unit] {
-    override private[api] def parseImpl(input: List[String]) =
-      if (input.isEmpty) null
-      else if (input.head == string) (input.tail, ())
-      else null
+    override private[api] def parseImpl(pathState: PathState): Unit =
+      if (pathState.input.nonEmpty && pathState.input.head == string) {
+        pathState.input = pathState.input.tail
+      } else {
+        pathState.failed = true
+      }
   }
 
   private[api] final case class MatchParser[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
-    override private[api] def parseImpl(input: List[String]): (List[String], A) =
-      if (input.isEmpty) null
-      else {
-        val a = parser.parse(input.head)
-        if (a.isEmpty) null
-        else (input.tail, a.get)
+    override private[api] def parseImpl(pathState: PathState): A =
+      if (pathState.input.isEmpty) {
+        pathState.failed = true
+        null.asInstanceOf[A]
+      } else {
+        val a = parser.parse(pathState.input.head)
+        if (a.isEmpty) {
+          pathState.failed = true
+          null.asInstanceOf[A]
+        } else {
+          pathState.input = pathState.input.tail
+          a.get
+        }
       }
   }
 
   private[api] final case class ZipWith[A, B, C](left: Path[A], right: Path[B], f: (A, B) => C, g: C => (A, B))
       extends Path[C] {
-    override private[api] def parseImpl(input: List[String]): (List[String], C) =
-      if (input.isEmpty) null
+    override private[api] def parseImpl(pathState: PathState): C =
+      if (pathState.input.isEmpty) null.asInstanceOf[C]
       else {
-        val a = left.parseImpl(input)
-        if (a eq null) return null
-        val b = right.parseImpl(a._1)
-        if (b eq null) return null
-        (b._1, f(a._2, b._2))
+        val a = left.parseImpl(pathState)
+        if (pathState.failed) return null.asInstanceOf[C]
+        val b = right.parseImpl(pathState)
+        if (pathState.failed) return null.asInstanceOf[C]
+        f(a, b)
       }
   }
 
   private[api] case object End extends Path[Unit] {
-    override private[api] def parseImpl(input: List[String]) =
-      if (input.isEmpty) (input, ())
-      else null
+    override private[api] def parseImpl(pathState: PathState): Unit =
+      if (pathState.input.isEmpty) ()
+      else pathState.failed = true
   }
 
   private[api] final case class MapPath[A, B](route: Path[A], f: A => B, g: B => A) extends Path[B] {
-    override private[api] def parseImpl(input: List[String]): (List[String], B) =
-      if (input.isEmpty) null
-      else {
-        val a = route.parseImpl(input)
-        if (a eq null) return null
-        (a._1, f(a._2))
-      }
+    override private[api] def parseImpl(pathState: PathState): B = {
+      val a = route.parseImpl(pathState)
+      if (pathState.failed) return null.asInstanceOf[B]
+      f(a)
+    }
   }
 }
