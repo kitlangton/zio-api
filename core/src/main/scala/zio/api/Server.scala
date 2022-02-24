@@ -7,7 +7,7 @@ final case class Server[R, E <: Throwable](apis: APIs[_], handlers: Handlers[R, 
   import zhttp.http._
 
   def start(port: Int): ZIO[R, Throwable, Nothing] =
-    zhttp.service.Server.start(port, toHttpApp)
+    zhttp.service.Server.start(port, toHttpApp ++ Http.notFound)
 
   private def toHttpApp: HttpApp[R, E] =
     Handlers

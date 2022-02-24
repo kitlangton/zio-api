@@ -62,7 +62,7 @@ object ServerClientSpec extends DefaultRunnableSpec {
   val port = 9898
   val host = s"http://localhost:$port"
 
-  private val apis     = userAPI ++ usersAPI ++ countAPI ++ incrementAPI
+  private val apis     = usersAPI ++ userAPI ++ countAPI ++ incrementAPI
   private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler
 
   val serverLayer =

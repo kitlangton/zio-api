@@ -1,13 +1,18 @@
 package example
 
-import zhttp.http.HttpApp
-import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.api._
 
-import java.io.IOException
 import java.util.UUID
 
+/**   - API DSL
+  *   - Compile-time ensured handler <-> api correspondence
+  *   - Direct to HttpApp
+  *   - optimization opportunities
+  *     - dynamic dispatch
+  *   - Path/Query/Header parameter API
+  *   - Streaming
+  */
 object RouteExample extends ZIOAppDefault {
 
   // APIs

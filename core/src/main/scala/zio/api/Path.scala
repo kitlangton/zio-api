@@ -253,7 +253,7 @@ sealed trait Path[A] extends RequestParser[A] { self =>
   override private[api] def parseRequestImpl(request: Request): A = {
     val state  = PathState(request.url.path.toList)
     val result = parseImpl(state)
-    if (state.failed) null.asInstanceOf[A]
+    if (state.failed || state.input.nonEmpty) null.asInstanceOf[A]
     else result
   }
 

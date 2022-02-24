@@ -2,7 +2,7 @@ package zio.api
 
 import zhttp.http.HttpData
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-import zio.{ChunkBuilder, ZIO}
+import zio.ZIO
 
 import scala.collection.mutable
 

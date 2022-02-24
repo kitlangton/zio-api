@@ -95,8 +95,8 @@ package object api {
   }
 
   lazy implicit val unitCodec: JsonCodec[Unit] = JsonCodec(
-    (a: Unit, indent: Option[Int], out: Write) => (),
-    (trace: List[JsonDecoder.JsonError], in: RetractReader) => ()
+    (_: Unit, _: Option[Int], _: Write) => (),
+    (_: List[JsonDecoder.JsonError], _: RetractReader) => ()
   )
 
 }

@@ -1,6 +1,5 @@
 package zio.api
 
-import zhttp.http.{Headers, Request, URL}
 import zio.test._
 
 import java.util.UUID
