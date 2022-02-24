@@ -32,7 +32,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
           Some(route)
       }
 
-    getPathImpl(self).getOrElse(Path.End)
+    getPathImpl(self).get
   }
 
   private[api] def getQueryParams: Option[Query[_]] =
@@ -250,39 +250,51 @@ sealed trait Path[A] extends RequestParser[A] { self =>
   def /(string: String): Path[A] =
     Path.ZipWith(this, Path.path(string), (a: A, b: Unit) => a, a => (a, ()))
 
+  // ZipWith implementation
+  // - knowledge of zippable boundary
+  // - predict structure of final tuple
+  // - push information onto stack (mutable array list)
+  //   - track size
+
+  // ParseState.failed is communicating via the heap
+
+  // throw without StackTrace
+  // - use a special exception construction, pass null in everywhere
+  // - sad path
+  // - BUILD A RESPONSE TREE! RequestParser ++ RequestParser
+  // Kleisli OrElse — EGAD!
+  // Akka  fallback  — EGAD!
+
   override private[api] def parseRequestImpl(request: Request): A = {
     val state  = PathState(request.url.path.toList)
     val result = parseImpl(state)
-    if (state.failed || state.input.nonEmpty) null.asInstanceOf[A]
+    if (result == null || state.input.nonEmpty) result
     else result
   }
 
   private[api] def parseImpl(pathState: PathState): A
 }
 
-final case class PathState(var input: List[String], var failed: Boolean = false)
+final case class PathState(var input: List[String])
 
 object Path {
-  def path(name: String): Path[Unit] = Path.MatchLiteral(name)
+  def path(name: String): Path[Unit] = Path.MatchLiteral(name).asInstanceOf[Path[Unit]]
 
-  private[api] final case class MatchLiteral(string: String) extends Path[Unit] {
-    override private[api] def parseImpl(pathState: PathState): Unit =
-      if (pathState.input.nonEmpty && pathState.input.head == string) {
+  private[api] final case class MatchLiteral(string: String) extends Path[Any] {
+    override private[api] def parseImpl(pathState: PathState): Any =
+      if (pathState.input.nonEmpty && pathState.input.head == string)
         pathState.input = pathState.input.tail
-      } else {
-        pathState.failed = true
-      }
+      else
+        null
   }
 
   private[api] final case class MatchParser[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
     override private[api] def parseImpl(pathState: PathState): A =
       if (pathState.input.isEmpty) {
-        pathState.failed = true
         null.asInstanceOf[A]
       } else {
         val a = parser.parse(pathState.input.head)
         if (a.isEmpty) {
-          pathState.failed = true
           null.asInstanceOf[A]
         } else {
           pathState.input = pathState.input.tail
@@ -297,23 +309,17 @@ object Path {
       if (pathState.input.isEmpty) null.asInstanceOf[C]
       else {
         val a = left.parseImpl(pathState)
-        if (pathState.failed) return null.asInstanceOf[C]
+        if (a == null) return null.asInstanceOf[C]
         val b = right.parseImpl(pathState)
-        if (pathState.failed) return null.asInstanceOf[C]
+        if (b == null) return null.asInstanceOf[C]
         f(a, b)
       }
-  }
-
-  private[api] case object End extends Path[Unit] {
-    override private[api] def parseImpl(pathState: PathState): Unit =
-      if (pathState.input.isEmpty) ()
-      else pathState.failed = true
   }
 
   private[api] final case class MapPath[A, B](route: Path[A], f: A => B, g: B => A) extends Path[B] {
     override private[api] def parseImpl(pathState: PathState): B = {
       val a = route.parseImpl(pathState)
-      if (pathState.failed) return null.asInstanceOf[B]
+      if (a == null) return null.asInstanceOf[B]
       f(a)
     }
   }

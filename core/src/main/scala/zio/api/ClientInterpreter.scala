@@ -85,8 +85,6 @@ private[api] object ClientInterpreter {
         }
       case Path.MatchLiteral(literal) =>
         state.addPath("/" + literal)
-      case Path.End =>
-        ()
       case Path.MatchParser(_, _, _) =>
         state.addPath("/" + params.toString)
     }

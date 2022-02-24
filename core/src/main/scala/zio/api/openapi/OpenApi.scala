@@ -46,8 +46,6 @@ object OpenApiInterpreter {
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
       case Path.ZipWith(left, right, f, g) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
-      case Path.End =>
-        List.empty
       case Path.MapPath(route, _, _) =>
         getPathComponents(route)
     }
@@ -66,8 +64,6 @@ object OpenApiInterpreter {
         )
       case ZipWith(left, right, f, g) =>
         pathToParameterObjects(left, name) ++ pathToParameterObjects(right, getRightmostLiteral(left))
-      case Path.End =>
-        List.empty
       case MapPath(route, _, _) =>
         pathToParameterObjects(route)
     }

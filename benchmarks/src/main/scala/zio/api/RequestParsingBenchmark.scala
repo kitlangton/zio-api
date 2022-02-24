@@ -21,7 +21,8 @@ class RequestParsingBenchmark {
     val parse: Request => Option[(Int, Int, String, String, String, String)] = api.requestParser.parseRequest
   }
 
-  // [info] RequestParsingBenchmark.parseRequestAPI  thrpt   10  7900694.567 ± 553012.893  ops/s
+  // 2/23/2022 1:30 PM RequestParsingBenchmark.parseRequestAPI  thrpt   10  7900694.567 ± 553012.893  ops/s
+  // 2/24/2022 2:05 PM RequestParsingBenchmark.parseRequestAPI  thrpt   10  8449007.556 ± 135448.632  ops/s
   @Benchmark
   def parseRequestAPI(): Option[(Int, Int, String, String, String, String)] =
     ApiParser.parse(request)

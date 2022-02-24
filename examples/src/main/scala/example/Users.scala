@@ -7,7 +7,7 @@ import java.util.UUID
 trait Users {
   def allUsers: Task[List[User]]
   def getUser(id: UUID): Task[Option[User]]
-  def saveUser(name: String, email: String): Task[User]
+  def createUser(name: String, email: String): Task[User]
   def deleteUser(id: UUID): Task[Unit]
 }
 
@@ -19,8 +19,8 @@ object Users {
   def getUser(id: UUID): ZIO[Users, Throwable, Option[User]] =
     ZIO.serviceWithZIO[Users](_.getUser(id))
 
-  def saveUser(name: String, email: String): ZIO[Users, Throwable, User] =
-    ZIO.serviceWithZIO[Users](_.saveUser(name, email))
+  def createUser(name: String, email: String): ZIO[Users, Throwable, User] =
+    ZIO.serviceWithZIO[Users](_.createUser(name, email))
 
   def deleteUser(id: UUID): ZIO[Users, Throwable, Unit] =
     ZIO.serviceWithZIO[Users](_.deleteUser(id))
@@ -34,7 +34,7 @@ object Users {
       log.log(s"GETTING USER $id") *>
         ref.get.map(_.get(id))
 
-    override def saveUser(name: String, email: String): Task[User] = {
+    override def createUser(name: String, email: String): Task[User] = {
       val user = User(UUID.randomUUID(), name, email)
       ref.update(_ + (user.id -> user)).as(user)
     }

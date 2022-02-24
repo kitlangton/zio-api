@@ -4,6 +4,10 @@ import zhttp.http.{Headers => _, Path => _}
 import zio.json._
 import zio.schema.Schema
 
+/**   - Input and Output as Schemas.
+  *   - Support wide range of Codecs including Json
+  *     - Dynamically decide response format based upon Request Header
+  */
 final case class API[Params, Input, Output](
     method: HttpMethod,
     requestParser: RequestParser[Params], // Path / QueryParams / Headers
