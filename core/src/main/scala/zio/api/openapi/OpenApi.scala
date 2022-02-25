@@ -29,7 +29,7 @@ object OpenApiInterpreter {
 
   def getRightmostLiteral(route: Path[_]): Option[String] =
     route match {
-      case Path.MatchLiteral(literal) =>
+      case Path.Literal(literal) =>
         Some(literal)
       case Path.ZipWith(left, right, f, g) =>
         getRightmostLiteral(right) orElse getRightmostLiteral(left)
@@ -40,9 +40,9 @@ object OpenApiInterpreter {
 
   def getPathComponents(route: Path[_], name: Option[String] = None): List[PathComponent] =
     route match {
-      case Path.MatchLiteral(string) =>
+      case Path.Literal(string) =>
         List(PathComponent.Literal(string))
-      case Path.MatchParser(tpeName, _, _) =>
+      case Path.Match(tpeName, _, _) =>
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
       case Path.ZipWith(left, right, f, g) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
@@ -52,8 +52,8 @@ object OpenApiInterpreter {
 
   def pathToParameterObjects(route: Path[_], name: Option[String] = None): List[ParameterObject] =
     route match {
-      case MatchLiteral(_) => List.empty
-      case MatchParser(matchName, _, schema) =>
+      case Literal(_) => List.empty
+      case Match(matchName, _, schema) =>
         List(
           ParameterObject(
             name = name.map(_ + "Id").getOrElse(matchName),

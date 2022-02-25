@@ -13,10 +13,10 @@ import scala.language.implicitConversions
 package object api {
 
   // Paths
-  val string: Path[String]   = Path.MatchParser("string", Parser.stringParser, Schema[String])
-  val int: Path[Int]         = Path.MatchParser("int", Parser.intParser, Schema[Int])
-  val boolean: Path[Boolean] = Path.MatchParser("boolean", Parser.booleanParser, Schema[Boolean])
-  val uuid: Path[UUID]       = Path.MatchParser("uuid", Parser.uuidParser, Schema[UUID])
+  val string: Path[String]   = Path.Match("string", Parser.stringParser, Schema[String])
+  val int: Path[Int]         = Path.Match("int", Parser.intParser, Schema[Int])
+  val boolean: Path[Boolean] = Path.Match("boolean", Parser.booleanParser, Schema[Boolean])
+  val uuid: Path[UUID]       = Path.Match("uuid", Parser.uuidParser, Schema[UUID])
 
   // Query Params
   def string(name: String): Query[String]   = Query.SingleParam(name, Parser.stringParser, Schema[String])

@@ -98,6 +98,19 @@ object RequestParsingSpec extends DefaultRunnableSpec {
           matcher(get("users")).contains((None, None)),
           matcher(get("posts", Map("Accept" -> "application/json", "Content" -> "text"))).isEmpty
         )
+      },
+      test("big match") {
+        val api = API
+          .get("users" / int / "comments" / int / "dogs" / string / "cats" / string / "mammals" / string / "eskimos")
+          .query(string("name"))
+
+        val matcher = parseRequest(api)
+
+        assertTrue(
+          matcher(get("/users/12/comments/14/dogs/scrappy/cats/crumb/mammals/fancy/eskimos?name=kit")).contains(
+            (12, 14, "scrappy", "crumb", "fancy", "kit")
+          )
+        )
       }
     )
 
