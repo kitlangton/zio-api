@@ -7,6 +7,8 @@ trait Parser[A] {
 }
 
 object Parser {
+  def apply[A](implicit parser: Parser[A]): Parser[A] = parser
+
   implicit val stringParser: Parser[String] = new Parser[String] {
     override def parse(input: String): Option[String] = Some(input)
   }
