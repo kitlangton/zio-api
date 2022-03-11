@@ -268,7 +268,7 @@ sealed trait Path[A] extends RequestParser[A] { self =>
   override private[api] def parseRequestImpl(request: Request): A = {
     val state  = PathState(request.url.path.toList)
     val result = parseImpl(state)
-    if (result == null || state.input.nonEmpty) result
+    if (result == null || state.input.nonEmpty) null.asInstanceOf[A]
     else result
   }
 
@@ -278,9 +278,9 @@ sealed trait Path[A] extends RequestParser[A] { self =>
 final case class PathState(var input: List[String])
 
 object Path {
-  def path(name: String): Path[Unit] = Path.MatchLiteral(name).asInstanceOf[Path[Unit]]
+  def path(name: String): Path[Unit] = Path.Literal(name).asInstanceOf[Path[Unit]]
 
-  private[api] final case class MatchLiteral(string: String) extends Path[Any] {
+  private[api] final case class Literal(string: String) extends Path[Any] {
     override private[api] def parseImpl(pathState: PathState): Any =
       if (pathState.input.nonEmpty && pathState.input.head == string)
         pathState.input = pathState.input.tail
@@ -288,7 +288,7 @@ object Path {
         null
   }
 
-  private[api] final case class MatchParser[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
+  private[api] final case class Match[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
     override private[api] def parseImpl(pathState: PathState): A =
       if (pathState.input.isEmpty) {
         null.asInstanceOf[A]

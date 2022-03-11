@@ -14,6 +14,7 @@ final case class API[Params, Input, Output](
     doc: Doc,
     inputCodec: JsonCodec[Input],
     outputCodec: JsonCodec[Output],
+    inputSchema: Schema[Input],
     outputSchema: Schema[Output]
 ) { self =>
   type Id
@@ -26,8 +27,8 @@ final case class API[Params, Input, Output](
   def header[A](headers: Header[A])(implicit zippable: Zipper[Params, A]): API[zippable.Out, Input, Output] =
     copy(requestParser = requestParser ++ headers)
 
-  def input[Input2](implicit codec: JsonCodec[Input2]): API[Params, Input2, Output] =
-    copy(inputCodec = codec)
+  def input[Input2](implicit codec: JsonCodec[Input2], schema: Schema[Input2]): API[Params, Input2, Output] =
+    copy(inputCodec = codec, inputSchema = schema)
 
   def output[Output2](implicit codec: JsonCodec[Output2], schema: Schema[Output2]): API[Params, Input, Output2] =
     copy(outputCodec = codec, outputSchema = schema)
@@ -72,6 +73,6 @@ object API {
   /** Creates an API with the given method and path.
     */
   private def method[Params](method: HttpMethod, path: Path[Params]): API[Params, Unit, Unit] =
-    API(method, path, Doc.empty, unitCodec, unitCodec, Schema[Unit])
+    API(method, path, Doc.empty, unitCodec, unitCodec, Schema[Unit], Schema[Unit])
 
 }

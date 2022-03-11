@@ -37,7 +37,9 @@ lazy val core = (project in file("core"))
       "dev.zio" %% "zio-json"              % zioJsonVersion,
       "io.d11"  %% "zhttp"                 % zioHttpVersion,
       "dev.zio" %% "zio"                   % zioVersion,
+      "dev.zio" %% "zio-macros"            % zioVersion,
       "dev.zio" %% "zio-schema"            % zioSchemaVersion,
+      "dev.zio" %% "zio-schema-json"       % zioSchemaVersion,
       "dev.zio" %% "zio-schema-derivation" % zioSchemaVersion,
       "dev.zio" %% "zio-test"              % zioVersion % Test
     ),

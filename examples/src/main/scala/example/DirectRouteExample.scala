@@ -10,39 +10,48 @@ object DirectRouteExample extends ZIOAppDefault {
 
   // APIs
 
-  val allUsers: HttpApp[Users, Throwable] =
+  val allTalks =
     API
-      .get("users")
+      .get("talks")
       .query(string("name").?)
-      .output[List[User]]
+      .output[List[Talk]]
       .toHttp {
         case Some(filter) =>
-          Users.allUsers.map(_.filter(_.name.toLowerCase.contains(filter.toLowerCase)))
+          Talks.all.map(_.filter(_.title.toLowerCase.contains(filter.toLowerCase)))
         case _ =>
-          Users.allUsers
+          Talks.all
       }
 
-  val getUser: HttpApp[Users, Throwable] =
+  val getTalk =
     API
-      .get("users" / uuid)
-      .output[Option[User]]
+      .get("talks" / uuid)
+      .output[Option[Talk]]
       .toHttp { uuid =>
-        Users.getUser(uuid)
+        Talks.get(uuid)
       }
 
-  val deleteUser =
+  val createTalk =
     API
-      .delete("users" / uuid)
-      .toHttp { id =>
-        Users.deleteUser(id)
+      .post("talks")
+      .input[CreateTalk]
+      .output[Talk]
+      .toHttp { case CreateTalk(title, description, speaker) =>
+        Talks.create(title, description, speaker)
       }
 
-  val app = getUser ++ allUsers ++ deleteUser
+  val deleteTalk =
+    API
+      .delete("talks" / uuid)
+      .toHttp { id =>
+        Talks.delete(id)
+      }
+
+  val app = getTalk ++ allTalks ++ createTalk ++ deleteTalk
 
   val program =
     zhttp.service.Server
       .start(8081, app ++ Http.notFound)
-      .provideCustom(Users.live, Logger.live)
+      .provide(Talks.live, Logger.live)
 
   override val run = program
 

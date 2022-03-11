@@ -87,6 +87,17 @@ object OpenApiInterpreter {
         queryParamsToParameterObjects(params, true)
     }
 
+  def pathToRequestBodyObject(api: API[_, _, _]): Option[RequestBodyObject] =
+    Option.when(api.inputCodec != unitCodec) {
+      RequestBodyObject(
+        "Input",
+        Map(
+          "application/json" -> MediaTypeObject(SchemaObject.fromSchema(api.inputSchema))
+        ),
+        true
+      )
+    }
+
   def apiToOperation(api: API[_, _, _]): Map[String, OperationObject] =
     Map(
       api.method.toString.toLowerCase ->
@@ -96,6 +107,7 @@ object OpenApiInterpreter {
           pathToParameterObjects(api.requestParser.getPath) ++
             api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
           // TODO: Flesh this out
+          pathToRequestBodyObject(api),
           Map(
             "200" -> ResponseObject(
               "OK",
@@ -114,7 +126,7 @@ object OpenApiInterpreter {
           operations = apiToOperation(api)
         )
       )
-    )
+    ).joinPaths
 
   val exampleApi =
     API
@@ -130,6 +142,12 @@ object OpenApiInterpreter {
   def main(args: Array[String]): Unit = {
     val apis = List(exampleApi, exampleApi2)
     println(apiToPaths(apis).toJsonPretty)
+  }
+
+  def generate(apis: APIs[_])(title: String, description: String): String = {
+    val paths   = apiToPaths(apis.toList)
+    val openApi = OpenApi("3.0.0", Info("1.0.0", title, description), paths)
+    openApi.toJson
   }
 
 }

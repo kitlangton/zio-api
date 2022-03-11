@@ -3,9 +3,28 @@ package zio.api.openapi.model
 import zio.json._
 import zio.json.ast.Json
 
+import scala.annotation.tailrec
+
 final case class Paths(
     pathObjects: List[PathObject]
-)
+) {
+  def joinPaths: Paths = {
+    @tailrec
+    def loop(remaining: List[PathObject], acc: Map[ApiPath, PathObject]): List[PathObject] =
+      remaining match {
+        case head :: tail =>
+          acc.get(head.path) match {
+            case Some(value) =>
+              loop(tail, acc.updated(head.path, value.copy(operations = value.operations ++ head.operations)))
+            case None => loop(tail, acc + (head.path -> head))
+          }
+        case Nil => acc.values.toList
+      }
+
+    Paths(loop(pathObjects, Map.empty))
+  }
+
+}
 
 object Paths {
   implicit val encoder: JsonEncoder[Paths] =
@@ -53,12 +72,24 @@ final case class OperationObject(
     summary: Option[String],
     description: Option[String],
     parameters: List[ParameterObject],
+    requestBody: Option[RequestBodyObject],
     responses: Map[String, ResponseObject]
 )
 
 object OperationObject {
   implicit val operationObjectJsonEncoder: JsonEncoder[OperationObject] =
     DeriveJsonEncoder.gen[OperationObject]
+}
+
+final case class RequestBodyObject(
+    description: String,
+    content: Map[String, MediaTypeObject],
+    required: Boolean
+)
+
+object RequestBodyObject {
+  implicit val requestObjectEncoder: JsonEncoder[RequestBodyObject] =
+    DeriveJsonEncoder.gen[RequestBodyObject]
 }
 
 final case class ResponseObject(

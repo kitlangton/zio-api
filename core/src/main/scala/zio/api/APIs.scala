@@ -2,7 +2,13 @@ package zio.api
 
 import scala.language.implicitConversions
 
-sealed trait APIs[Ids] {
+sealed trait APIs[Ids] { self =>
+  def toList: List[API[_, _, _]] =
+    self match {
+      case APIs.Single(api)         => List(api)
+      case APIs.Concat(left, right) => left.toList ++ right.toList
+    }
+
   def ++(that: API[_, _, _]): APIs[Ids with that.Id] =
     APIs.Concat[Ids, that.Id](this, APIs.Single[that.Id](that))
 }
